@@ -10,6 +10,8 @@ import { Loader2, Mail, Lock, LogIn, UserPlus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
+import { signUpUser } from "@/app/auth/actions";
+
 export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -22,25 +24,29 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
         setLoading(true);
         setError(null);
 
-        const { error } = mode === 'login'
-            ? await supabase.auth.signInWithPassword({ email, password })
-            : await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/onboarding`
-                }
-            });
-
-        if (error) {
-            console.error("Auth error:", error);
-            if (error.message.includes("Email not confirmed")) {
-                setError("Network Verification Pending: Please confirm your email to activate your EraConnect profile.");
-            } else {
+        if (mode === 'login') {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) {
+                console.error("Auth error:", error);
                 setError(error.message);
+            } else {
+                router.push("/dashboard");
             }
         } else {
-            router.push(mode === 'signup' ? "/onboarding" : "/dashboard");
+            // New Server-Side Sign-Up for Auto-Confirmation
+            const result = await signUpUser({ email, password });
+
+            if (!result.success) {
+                setError(result.error || "System Protocol Error: Failed to initialize account.");
+            } else {
+                // Sign in immediately after auto-confirm sign-up to establish session
+                const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) {
+                    setError("Activation Error: Account created but login protocol failed.");
+                } else {
+                    router.push("/onboarding");
+                }
+            }
         }
         setLoading(false);
     };

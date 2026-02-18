@@ -18,8 +18,8 @@ export default function DashboardPage() {
 
             <main className="max-w-7xl mx-auto space-y-12 relative z-10">
                 {/* Dashboard Header */}
-                <header className="flex flex-col md:flex-row md:items-center justify-between gap-8 py-8">
-                    <div className="space-y-4">
+                <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8 py-4 md:py-8">
+                    <div className="space-y-3 md:space-y-4">
                         <motion.div
                             initial={{ opacity: 0, x: -20 }}
                             animate={{ opacity: 1, x: 0 }}
@@ -28,22 +28,22 @@ export default function DashboardPage() {
                             <Sparkles className="w-3 h-3" />
                             <span>Era Connect Active</span>
                         </motion.div>
-                        <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.8] uppercase text-slate-900">
+                        <h1 className="text-5xl sm:text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] uppercase text-slate-900 break-words">
                             Your <span className="text-gradient">Hub</span>
                         </h1>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                        <Link href="/dashboard/profile">
-                            <Button variant="ghost" size="lg" className="rounded-2xl border-slate-100 px-6 h-16 uppercase font-black text-xs tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-3 md:gap-4">
+                        <Link href="/dashboard/profile" className="flex-1 sm:flex-initial">
+                            <Button variant="ghost" className="w-full sm:w-auto rounded-2xl border-slate-100 px-4 md:px-6 h-14 md:h-16 uppercase font-black text-[10px] md:text-xs tracking-widest text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                                 <UserCircle className="w-5 h-5" />
-                                My Profile
+                                <span className="hidden sm:inline">My Profile</span>
+                                <span className="sm:hidden">Profile</span>
                             </Button>
                         </Link>
                         <Button
                             variant="outline"
-                            size="lg"
-                            className="rounded-2xl border-slate-100 bg-white hover:bg-slate-100 px-6 h-16 uppercase font-black text-xs tracking-widest text-slate-400 hover:text-rose-600 transition-all flex items-center gap-2"
+                            className="rounded-2xl border-slate-100 bg-white hover:bg-slate-100 px-4 md:px-6 h-14 md:h-16 uppercase font-black text-[10px] md:text-xs tracking-widest text-slate-400 hover:text-rose-600 transition-all flex items-center justify-center gap-2"
                             onClick={async () => {
                                 await supabase.auth.signOut();
                                 window.location.href = "/";
@@ -63,24 +63,24 @@ export default function DashboardPage() {
                         <Link href="/dashboard/discovery" className="block h-full">
                             <motion.div
                                 whileHover={{ y: -5 }}
-                                className="glass-card h-full p-10 rounded-[3rem] space-y-8 group relative overflow-hidden border-indigo-100/50"
+                                className="glass-card h-full p-6 md:p-10 rounded-[2rem] md:rounded-[3rem] space-y-6 md:space-y-8 group relative overflow-hidden border-indigo-100/50"
                             >
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2" />
-                                <div className="space-y-2 relative z-10">
-                                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 group-hover:scale-110 transition-transform shadow-sm">
-                                        <Compass className="w-8 h-8 text-indigo-600" />
+                                <div className="space-y-3 md:space-y-2 relative z-10">
+                                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 group-hover:scale-110 transition-transform shadow-sm">
+                                        <Compass className="w-6 h-6 md:w-8 md:h-8 text-indigo-600" />
                                     </div>
-                                    <h2 className="text-4xl font-black uppercase text-slate-800 tracking-tighter pt-4">Discover <br /> People</h2>
-                                    <p className="text-slate-500 font-medium pb-4">Our engine analyzed your bio and matched you with peer collaborators.</p>
+                                    <h2 className="text-3xl md:text-4xl font-black uppercase text-slate-800 tracking-tighter pt-2 md:pt-4">Discover <br /> People</h2>
+                                    <p className="text-sm md:text-base text-slate-500 font-medium pb-2 md:pb-4">Our engine analyzed your bio and matched you with peer collaborators.</p>
                                     <div className="flex items-center gap-2">
                                         <div className="h-1 w-12 bg-indigo-100 rounded-full overflow-hidden">
                                             <div className="h-full bg-indigo-600 w-2/3 animate-pulse" />
                                         </div>
-                                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Optimizing Matches</span>
+                                        <span className="text-[9px] md:text-[10px] font-black text-indigo-600 uppercase tracking-widest">Optimizing Matches</span>
                                     </div>
                                 </div>
-                                <div className="pt-4 relative z-10">
-                                    <Button variant="ghost" className="p-0 text-indigo-600 hover:text-indigo-700 hover:bg-transparent transition-all font-black uppercase text-xs tracking-widest gap-2">
+                                <div className="pt-2 md:pt-4 relative z-10">
+                                    <Button variant="ghost" className="p-0 text-indigo-600 hover:text-indigo-700 hover:bg-transparent transition-all font-black uppercase text-[10px] md:text-xs tracking-widest gap-2">
                                         Go to Discovery <ArrowRight className="w-4 h-4" />
                                     </Button>
                                 </div>

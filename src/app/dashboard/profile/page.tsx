@@ -102,98 +102,98 @@ export default function ProfilePage() {
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/[0.03] blur-[120px] rounded-full" />
 
             <main className="max-w-4xl mx-auto relative z-10 space-y-12">
-                <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6">
+                <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-4 md:pb-6">
                     <div className="space-y-4">
                         <Button
                             variant="ghost"
-                            className="text-slate-400 font-black uppercase tracking-[0.3em] text-[10px] p-0 hover:bg-transparent hover:text-indigo-600 transition-all flex items-center gap-2"
+                            className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] md:text-[10px] p-0 hover:bg-transparent hover:text-indigo-600 transition-all flex items-center gap-2"
                             onClick={() => router.back()}
                         >
                             <ArrowLeft className="w-3 h-3" />
                             Return to Hub
                         </Button>
-                        <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.8] uppercase text-slate-900">
+                        <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] md:leading-[0.8] uppercase text-slate-900 break-words">
                             Edit <br /> <span className="text-gradient">Profile</span>
                         </h1>
                     </div>
                 </header>
 
-                <Card className="glass-card border-white shadow-2xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
-                    <CardHeader className="p-10 pb-4 flex flex-row items-center gap-6 border-b border-white bg-slate-50/50">
-                        <div className="w-20 h-20 rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-lg shadow-indigo-100">
-                            <UserCircle className="w-10 h-10 text-indigo-600" />
+                <Card className="glass-card border-white shadow-2xl shadow-slate-200/50 rounded-[2rem] md:rounded-[3rem] overflow-hidden">
+                    <CardHeader className="p-6 md:p-10 pb-4 md:pb-6 flex flex-row items-center gap-4 md:gap-6 border-b border-white bg-slate-50/50">
+                        <div className="w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-white border border-slate-100 flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+                            <UserCircle className="w-8 h-8 md:w-10 md:h-10 text-indigo-600" />
                         </div>
-                        <div>
-                            <CardTitle className="text-2xl font-black text-slate-900 uppercase tracking-tight">Personal Data</CardTitle>
-                            <CardDescription className="text-slate-400 font-mono text-[10px] uppercase tracking-widest">Update your campus presence</CardDescription>
+                        <div className="min-w-0">
+                            <CardTitle className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight truncate">Personal Data</CardTitle>
+                            <CardDescription className="text-slate-400 font-mono text-[9px] md:text-[10px] uppercase tracking-widest truncate">Update your campus presence</CardDescription>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-10">
-                        <form onSubmit={handleSave} className="space-y-10">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                <div className="space-y-4">
-                                    <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest flex items-center gap-2">
+                    <CardContent className="p-6 md:p-10">
+                        <form onSubmit={handleSave} className="space-y-8 md:space-y-10">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
                                         <User className="w-3 h-3" /> Full Name
                                     </Label>
                                     <Input
                                         value={formData.full_name}
                                         onChange={e => setFormData({ ...formData, full_name: e.target.value })}
-                                        className="input-glow-bottom text-lg font-black text-slate-800 placeholder:text-slate-200 h-14"
+                                        className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
                                         placeholder="Your full name..."
                                     />
                                 </div>
-                                <div className="space-y-4">
-                                    <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest flex items-center gap-2">
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
                                         <Book className="w-3 h-3" /> Academic Focus
                                     </Label>
                                     <Input
                                         value={formData.academic_aim}
                                         onChange={e => setFormData({ ...formData, academic_aim: e.target.value })}
-                                        className="input-glow-bottom text-lg font-black text-slate-800 placeholder:text-slate-200 h-14"
+                                        className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
                                         placeholder="What are you studying?"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest flex items-center gap-2">
+                            <div className="space-y-3 md:space-y-4">
+                                <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
                                     <MessageSquare className="w-3 h-3" /> Professional Bio
                                 </Label>
                                 <textarea
                                     value={formData.bio}
                                     onChange={e => setFormData({ ...formData, bio: e.target.value })}
-                                    className="w-full h-32 p-6 rounded-2xl bg-slate-50/50 border-2 border-slate-100 text-slate-700 font-medium text-lg focus:border-indigo-400 focus:bg-white outline-none transition-all resize-none shadow-inner"
+                                    className="w-full h-32 p-4 md:p-6 rounded-xl md:rounded-2xl bg-slate-50/50 border-2 border-slate-100 text-slate-700 font-medium text-base md:text-lg focus:border-indigo-400 focus:bg-white outline-none transition-all resize-none shadow-inner"
                                     placeholder="Tell the campus your story..."
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                <div className="space-y-4">
-                                    <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest flex items-center gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
                                         <Heart className="w-3 h-3" /> Interests & Hobbies
                                     </Label>
                                     <Input
                                         value={formData.hobbies}
                                         onChange={e => setFormData({ ...formData, hobbies: e.target.value })}
-                                        className="input-glow-bottom text-lg font-black text-slate-800 placeholder:text-slate-200 h-14"
+                                        className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
                                         placeholder="Reading, Coding, Chess..."
                                     />
                                 </div>
-                                <div className="space-y-4">
-                                    <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest flex items-center gap-2">
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
                                         <Sparkles className="w-3 h-3" /> Study Rhythm
                                     </Label>
                                     <Input
                                         value={formData.study_window}
                                         onChange={e => setFormData({ ...formData, study_window: e.target.value })}
-                                        className="input-glow-bottom text-lg font-black text-slate-800 placeholder:text-slate-200 h-14"
+                                        className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
                                         placeholder="e.g. 4-5 hours / night"
                                     />
                                 </div>
                             </div>
 
                             {error && (
-                                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest text-center">
+                                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-center">
                                     System Error: {error}
                                 </div>
                             )}
@@ -201,11 +201,11 @@ export default function ProfilePage() {
                             <Button
                                 type="submit"
                                 disabled={saving}
-                                className="w-full h-18 rounded-3xl bg-indigo-600 text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all hover:scale-[1.02] active:scale-95"
+                                className="w-full h-14 md:h-18 rounded-2xl md:rounded-3xl bg-indigo-600 text-white font-black uppercase text-[10px] md:text-xs tracking-[0.2em] hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all hover:scale-[1.01] active:scale-95"
                             >
-                                {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                                {saving ? <Loader2 className="w-5 h-5 md:w-6 md:h-6 animate-spin" /> : (
                                     <>
-                                        Commit Changes <Save className="ml-2 w-5 h-5" />
+                                        Commit Changes <Save className="ml-2 w-4 h-4 md:w-5 md:h-5" />
                                     </>
                                 )}
                             </Button>
