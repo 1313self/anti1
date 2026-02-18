@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export const embeddingModel = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
-export const flashModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+export const flashModel = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 export async function generateEmbedding(text: string) {
     if (!process.env.GEMINI_API_KEY) return null;

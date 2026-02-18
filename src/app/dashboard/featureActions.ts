@@ -29,9 +29,10 @@ export async function createResource(data: {
     user_id: string;
 }) {
     try {
+        const { user_id, ...rest } = data;
         const { error } = await supabaseAdmin
             .from('resources')
-            .insert([data]);
+            .insert([{ ...rest, author_id: user_id }]);
 
         if (error) throw error;
         revalidatePath("/dashboard/library");
@@ -70,9 +71,10 @@ export async function createGig(data: {
     hot?: boolean;
 }) {
     try {
+        const { user_id, ...rest } = data;
         const { error } = await supabaseAdmin
             .from('gigs')
-            .insert([data]);
+            .insert([{ ...rest, posted_by: user_id }]);
 
         if (error) throw error;
         revalidatePath("/dashboard/hustle");
@@ -109,9 +111,10 @@ export async function createProject(data: {
     status?: string;
 }) {
     try {
+        const { user_id, ...rest } = data;
         const { error } = await supabaseAdmin
             .from('projects')
-            .insert([{ ...data, members_count: 1 }]);
+            .insert([{ ...rest, lead_id: user_id, members_count: 1 }]);
 
         if (error) throw error;
         revalidatePath("/dashboard/forge");
