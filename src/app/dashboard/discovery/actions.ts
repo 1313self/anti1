@@ -1,23 +1,27 @@
 "use server";
 
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateEmbedding, flashModel } from "@/lib/gemini";
 
 export async function findConnections(userId: string) {
     try {
-        // 1. Get user profile and embedding
-        const { data: userProfile, error: userError } = await supabase
+        // 1. Get user profile and embedding using Admin context
+        const { data: userProfile, error: userError } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', userId)
             .single();
 
         if (userError || !userProfile || !userProfile.embedding) {
-            return { success: false, error: "Profile or embedding not found" };
+            return {
+                success: false,
+                error: "Your profile is incomplete. Please finish the onboarding process to activate the Discovery Engine.",
+                onboardingRequired: true
+            };
         }
 
-        // 2. Search for similar profiles using match_profiles RPC
-        const { data: matches, error: matchError } = await supabase.rpc('match_profiles', {
+        // 2. Search for similar profiles using match_profiles RPC (Admin bypass RLS)
+        const { data: matches, error: matchError } = await supabaseAdmin.rpc('match_profiles', {
             query_embedding: userProfile.embedding,
             match_threshold: 0.5,
             match_count: 10,
@@ -90,15 +94,15 @@ export async function findConnections(userId: string) {
 
 export async function generateIcebreaker(connectionId: string, currentUserId: string) {
     try {
-        const { data: participants, error } = await supabase
+        const { data: participants, error } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .in('id', [connectionId, currentUserId]);
 
         if (error || participants.length < 2) throw new Error("Could not find profiles");
 
-        const targetProfile = participants.find(p => p.id === connectionId);
-        const userProfile = participants.find(p => p.id === currentUserId);
+        const targetProfile = participants.find((p: any) => p.id === connectionId);
+        const userProfile = participants.find((p: any) => p.id === currentUserId);
 
         const prompt = `
       You are a Professional Liaison for "EraConnect".

@@ -28,8 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             root.style.setProperty('--ring', 'oklch(0.707 0.165 254.624)');
         }
 
-        // Always force dark mode for the cosmic academic look
-        document.documentElement.classList.add('dark');
+        // Removed force dark mode for light professional theme
     }, [peakHours]);
 
     return (

@@ -14,13 +14,14 @@ import {
     Code, Palette, LineChart, Scale, Dna, Mic2,
     Settings, Brain, Globe, Coffee, Book, Gamepad2,
     Activity, Utensils, Plane, Music, Camera, Terminal,
-    ChevronRight, ChevronLeft, Check, Sparkles, Loader2
+    ChevronRight, ChevronLeft, Check, Sparkles, Loader2,
+    UserCircle, Search, FileText
 } from "lucide-react";
 
 const steps = [
-    { id: 1, title: "Personal Info", description: "What's your name?" },
-    { id: 2, title: "Interests", description: "What are you studying and what do you like?" },
-    { id: 3, title: "Bio", description: "A quick intro about you." },
+    { id: 1, title: "Personal Info", description: "What's your name and focus?", icon: UserCircle },
+    { id: 2, title: "Interests", description: "What are you studying?", icon: Search },
+    { id: 3, title: "Your Story", description: "A quick intro about you.", icon: FileText },
 ];
 
 const MAJOR_TAGS = [
@@ -56,7 +57,7 @@ export default function OnboardingPage() {
 
     const [formData, setFormData] = useState({
         fullName: "",
-        academicAim: "", // Will be selected from tags
+        academicAim: "",
         hobbies: [] as string[],
         studyWindow: "",
         peakHours: "neutral" as 'morning' | 'night' | 'neutral',
@@ -96,7 +97,7 @@ export default function OnboardingPage() {
 
     const handleFinish = async () => {
         if (!user) {
-            alert("Security Protocol: Log in required.");
+            router.push("/login");
             return;
         }
 
@@ -115,83 +116,92 @@ export default function OnboardingPage() {
         if (result.success) {
             router.push("/dashboard");
         } else {
-            alert("Sync Error: " + result.error);
+            alert("Error saving profile: " + result.error);
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen p-6 relative overflow-hidden bg-[#030712]">
-            {/* Background Grain/Noise */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+        <div className="flex flex-col items-center justify-center min-h-screen p-6 relative bg-background overflow-hidden">
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/[0.03] blur-[120px] rounded-full" />
+
+            {/* EraConnect Branding */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute top-12 flex items-center gap-2"
+            >
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100">
+                    <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-xl font-black tracking-tighter uppercase text-slate-900">EraConnect</span>
+            </motion.div>
 
             <div className="w-full max-w-xl relative z-10 space-y-8">
-                {/* Header */}
-                <div className="text-center space-y-2">
+                {/* Modern Progress Header */}
+                <div className="text-center space-y-6">
                     <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="inline-block p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-2"
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white border border-slate-100 shadow-sm text-indigo-600 mb-2"
                     >
-                        <Terminal className="w-5 h-5 text-cyan-400" />
+                        {(() => {
+                            const StepIcon = steps[currentStep - 1].icon;
+                            return StepIcon ? <StepIcon className="w-6 h-6" /> : null;
+                        })()}
                     </motion.div>
-                    <h1 className="text-4xl font-black tracking-tighter uppercase text-white">Welcome to <span className="text-gradient">EraConnect</span></h1>
-                    <div className="flex justify-center gap-1.5 pt-2">
-                        {steps.map((step) => (
-                            <div
-                                key={step.id}
-                                className={`h-1 rounded-full transition-all duration-500 ${currentStep >= step.id ? "w-8 bg-cyan-400" : "w-2 bg-white/10"}`}
-                            />
-                        ))}
+                    <div className="space-y-1">
+                        <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tighter leading-none">Complete Your Profile</h1>
+                        <p className="text-slate-400 font-mono text-[10px] uppercase tracking-[0.3em]">Step {currentStep} of {steps.length} • Set Up Account</p>
                     </div>
                 </div>
 
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={currentStep}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 1.05 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3 }}
                     >
-                        <Card className="glass-card border-white/5 bg-white/5 backdrop-blur-[40px] shadow-2xl">
-                            <CardHeader className="text-center pb-2">
-                                <CardTitle className="text-xl font-bold text-white uppercase tracking-widest">{steps[currentStep - 1].title}</CardTitle>
-                                <CardDescription className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">{steps[currentStep - 1].description}</CardDescription>
+                        <Card className="glass-card border-white shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
+                            <CardHeader className="text-center pb-2 bg-slate-50/50 border-b border-white">
+                                <CardTitle className="text-xl font-black text-slate-800 uppercase tracking-tight">{steps[currentStep - 1].title}</CardTitle>
+                                <CardDescription className="text-slate-400 text-xs font-semibold">{steps[currentStep - 1].description}</CardDescription>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-8">
+                            <CardContent className="p-10 space-y-8">
                                 {currentStep === 1 && (
-                                    <div className="space-y-6">
-                                        <div className="space-y-4">
-                                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest ring-offset-background">Full Name</Label>
+                                    <div className="space-y-8">
+                                        <div className="space-y-3">
+                                            <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Full Name</Label>
                                             <Input
                                                 placeholder="Enter your name..."
-                                                className="input-glow-bottom text-2xl font-black text-white p-0 uppercase placeholder:text-white/10"
+                                                className="input-glow-bottom text-2xl font-black text-slate-900 placeholder:text-slate-200"
                                                 value={formData.fullName}
                                                 onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                                                 autoFocus
                                             />
                                         </div>
                                         <div className="space-y-4">
-                                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest ring-offset-background">When do you study?</Label>
+                                            <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Study Preference</Label>
                                             <div className="flex gap-4">
                                                 <Button
                                                     variant="outline"
-                                                    className={`flex-1 h-20 rounded-2xl border-white/5 transition-all group overflow-hidden relative ${formData.peakHours === 'morning' ? 'border-orange-500/50 bg-orange-500/10' : 'hover:bg-white/5'}`}
+                                                    className={`flex-1 h-24 rounded-3xl border-slate-100 shadow-sm transition-all relative overflow-hidden ${formData.peakHours === 'morning' ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-400' : 'bg-white hover:bg-slate-50'}`}
                                                     onClick={() => handlePeakHoursChange('morning')}
                                                 >
-                                                    <div className="flex flex-col items-center gap-1 z-10">
-                                                        <span className="text-2xl group-hover:scale-110 transition-transform">☀️</span>
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Morning</span>
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <span className="text-2xl">☀️</span>
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${formData.peakHours === 'morning' ? 'text-amber-600' : 'text-slate-400'}`}>Early Bird</span>
                                                     </div>
                                                 </Button>
                                                 <Button
                                                     variant="outline"
-                                                    className={`flex-1 h-20 rounded-2xl border-white/5 transition-all group overflow-hidden relative ${formData.peakHours === 'night' ? 'border-cyan-500/50 bg-cyan-500/10' : 'hover:bg-white/5'}`}
+                                                    className={`flex-1 h-24 rounded-3xl border-slate-100 shadow-sm transition-all relative overflow-hidden ${formData.peakHours === 'night' ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400' : 'bg-white hover:bg-slate-50'}`}
                                                     onClick={() => handlePeakHoursChange('night')}
                                                 >
-                                                    <div className="flex flex-col items-center gap-1 z-10">
-                                                        <span className="text-2xl group-hover:scale-110 transition-transform">🌙</span>
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Night</span>
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <span className="text-2xl">🌙</span>
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${formData.peakHours === 'night' ? 'text-indigo-600' : 'text-slate-400'}`}>Night Owl</span>
                                                     </div>
                                                 </Button>
                                             </div>
@@ -200,36 +210,36 @@ export default function OnboardingPage() {
                                 )}
 
                                 {currentStep === 2 && (
-                                    <div className="space-y-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    <div className="space-y-8 max-h-[450px] overflow-y-auto pr-4 custom-scrollbar">
                                         <div className="space-y-4">
-                                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest ring-offset-background">Your Major</Label>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Your Major</Label>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                 {MAJOR_TAGS.map((tag) => (
                                                     <button
                                                         key={tag.id}
                                                         onClick={() => toggleTag('academicAim', tag.label)}
-                                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all duration-300 ${formData.academicAim === tag.label ? 'bg-cyan-500/20 border-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.2)]' : 'bg-white/5 border-white/10 grayscale opacity-40 hover:grayscale-0 hover:opacity-100'}`}
+                                                        className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${formData.academicAim === tag.label ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-200 opacity-60 hover:opacity-100'}`}
                                                     >
-                                                        <tag.icon className={`w-5 h-5 ${formData.academicAim === tag.label ? 'text-cyan-400' : 'text-white'}`} />
-                                                        <span className="text-xs font-bold text-white uppercase tracking-tight">{tag.label}</span>
+                                                        <div className={`p-2 rounded-lg ${formData.academicAim === tag.label ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                                                            <tag.icon className="w-4 h-4" />
+                                                        </div>
+                                                        <span className={`text-xs font-black uppercase tracking-tight ${formData.academicAim === tag.label ? 'text-indigo-700' : 'text-slate-500'}`}>{tag.label}</span>
                                                     </button>
                                                 ))}
                                             </div>
                                         </div>
 
                                         <div className="space-y-4">
-                                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest ring-offset-background">Interests & Hobbies</Label>
+                                            <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Interests</Label>
                                             <div className="flex flex-wrap gap-2">
                                                 {HOBBY_TAGS.map((tag) => (
                                                     <button
                                                         key={tag.id}
                                                         onClick={() => toggleTag('hobbies', tag.label)}
-                                                        className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold transition-all duration-300 animate-float`}
-                                                        style={{ animationDelay: `${Math.random() * 5}s` }}
+                                                        className={`flex items-center gap-2 px-5 py-2.5 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${formData.hobbies.includes(tag.label) ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'}`}
                                                     >
-                                                        <tag.icon className={`w-3 h-3 ${formData.hobbies.includes(tag.label) ? 'text-green-400' : 'text-white/40'}`} />
-                                                        <span className={`${formData.hobbies.includes(tag.label) ? 'text-white' : 'text-white/40'}`}>{tag.label.toUpperCase()}</span>
-                                                        {formData.hobbies.includes(tag.label) && <Check className="w-3 h-3 text-green-400" />}
+                                                        <tag.icon className="w-3 h-3" />
+                                                        {tag.label}
                                                     </button>
                                                 ))}
                                             </div>
@@ -238,60 +248,61 @@ export default function OnboardingPage() {
                                 )}
 
                                 {currentStep === 3 && (
-                                    <div className="space-y-6">
+                                    <div className="space-y-8">
                                         <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest">About Me</Label>
-                                            </div>
-                                            <div className="relative group">
+                                            <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">About You</Label>
+                                            <div className="relative">
                                                 <textarea
-                                                    className="w-full h-40 p-10 pl-10 rounded-2xl bg-black/40 border-0 border-b-2 border-white/10 text-cyan-50 font-mono text-sm focus:border-cyan-500 outline-none transition-all resize-none placeholder:text-white/5"
-                                                    placeholder="TELL US ABOUT YOURSELF AND YOUR GOALS..."
+                                                    className="w-full h-44 p-8 rounded-[2rem] bg-slate-50/50 border-2 border-slate-100 text-slate-700 font-medium text-lg focus:border-indigo-400 focus:bg-white outline-none transition-all resize-none shadow-inner"
+                                                    placeholder="Tell us what you're working on or what you're looking for in a collaborator..."
                                                     value={formData.bio}
                                                     onChange={e => setFormData({ ...formData, bio: e.target.value })}
                                                 />
-                                                <div className="absolute bottom-4 right-4 text-[10px] font-mono text-white/20">
-                                                    {formData.bio.length} CHARS
-                                                </div>
                                             </div>
                                         </div>
 
                                         <div className="space-y-4">
-                                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest">Study Hours</Label>
-                                            <Input
-                                                placeholder="E.G. 10 PM - 2 AM"
-                                                className="input-glow-bottom text-xl font-mono text-white"
-                                                value={formData.studyWindow}
-                                                onChange={e => setFormData({ ...formData, studyWindow: e.target.value })}
-                                            />
+                                            <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Typically Studying Hours</Label>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {['2-3 HOURS', '4-5 HOURS', '6+ HOURS', 'FLEXIBLE'].map((choice) => (
+                                                    <Button
+                                                        key={choice}
+                                                        variant="outline"
+                                                        className={`h-16 rounded-2xl border-slate-100 font-black text-[10px] tracking-widest uppercase transition-all ${formData.studyWindow === choice ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400 text-indigo-600' : 'bg-white hover:bg-slate-50 text-slate-400'}`}
+                                                        onClick={() => setFormData({ ...formData, studyWindow: choice })}
+                                                    >
+                                                        {choice}
+                                                    </Button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="flex gap-4 pt-8">
+                                <div className="flex gap-4 pt-4">
                                     <Button
                                         variant="ghost"
                                         onClick={prevStep}
                                         disabled={currentStep === 1}
-                                        className="flex-1 h-14 rounded-2xl bg-white/5 border border-white/5 text-white/40 hover:text-white hover:bg-white/10"
+                                        className="flex-1 h-14 rounded-2xl bg-slate-50 text-slate-400 font-black uppercase tracking-widest hover:bg-slate-100"
                                     >
-                                        <ChevronLeft className="w-5 h-5 mr-2" /> BACK
+                                        Back
                                     </Button>
 
                                     {currentStep < steps.length ? (
                                         <Button
                                             onClick={nextStep}
-                                            className="flex-2 h-14 rounded-2xl bg-white text-black font-black hover:bg-white/90 shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                                            className="flex-2 h-14 rounded-2xl bg-indigo-600 text-white font-black uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-100"
                                         >
-                                            NEXT <ChevronRight className="ml-2 w-5 h-5" />
+                                            Next
                                         </Button>
                                     ) : (
                                         <Button
                                             onClick={handleFinish}
                                             disabled={loading || !formData.bio || !formData.fullName}
-                                            className="flex-2 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-black hover:scale-105 transition-all shadow-[0_0_30px_rgba(34,211,238,0.3)]"
+                                            className="flex-2 h-14 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-indigo-200"
                                         >
-                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="mr-2 w-5 h-5" /> COMPLETE SETUP</>}
+                                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Finish Setup</>}
                                         </Button>
                                     )}
                                 </div>
@@ -301,21 +312,26 @@ export default function OnboardingPage() {
                 </AnimatePresence>
             </div>
 
+            {/* Founder Signature Footer - Only on Last Step */}
+            {currentStep === 3 && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="absolute bottom-8 text-center space-y-1"
+                >
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">EraConnect Engineering</p>
+                    <p className="text-[11px] font-bold text-slate-400">
+                        Developer And Founder <span className="text-indigo-500 font-black">Divyansh Thakur</span>
+                    </p>
+                </motion.div>
+            )}
+
             <style jsx global>{`
-              .custom-scrollbar::-webkit-scrollbar {
-                width: 4px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-track {
-                background: rgba(255, 255, 255, 0.02);
-                border-radius: 10px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-thumb {
-                background: rgba(255, 255, 255, 0.1);
-                border-radius: 10px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                background: rgba(34, 211, 238, 0.5);
-              }
+              .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+              .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+              .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+              .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
             `}</style>
         </div>
     );

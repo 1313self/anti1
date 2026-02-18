@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Mail, Lock, LogIn, UserPlus } from "lucide-react";
+import { Loader2, Mail, Lock, LogIn, UserPlus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 
 export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
     const [email, setEmail] = useState("");
@@ -23,10 +24,21 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
 
         const { error } = mode === 'login'
             ? await supabase.auth.signInWithPassword({ email, password })
-            : await supabase.auth.signUp({ email, password });
+            : await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/onboarding`
+                }
+            });
 
         if (error) {
-            setError(error.message);
+            console.error("Auth error:", error);
+            if (error.message.includes("Email not confirmed")) {
+                setError("Network Verification Pending: Please confirm your email to activate your EraConnect profile.");
+            } else {
+                setError(error.message);
+            }
         } else {
             router.push(mode === 'signup' ? "/onboarding" : "/dashboard");
         }
@@ -34,79 +46,97 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
     };
 
     return (
-        <div className="min-h-screen bg-[#030712] flex items-center justify-center p-6 relative overflow-hidden">
-            <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-cyan-600/10 blur-[100px] rounded-full" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-600/10 blur-[100px] rounded-full" />
+        <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+            {/* Background Soft Glows */}
+            <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-500/[0.03] blur-[120px] rounded-full" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-500/[0.03] blur-[120px] rounded-full" />
 
-            <Card className="glass-card border-white/5 bg-white/5 backdrop-blur-[40px] w-full max-w-md relative z-10">
-                <CardHeader className="text-center space-y-2">
-                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 mx-auto mb-4">
-                        {mode === 'login' ? <LogIn className="text-cyan-400 w-6 h-6" /> : <UserPlus className="text-cyan-400 w-6 h-6" />}
-                    </div>
-                    <CardTitle className="text-3xl font-black tracking-tighter uppercase text-white">
-                        {mode === 'login' ? "Welcome Back" : "Create Account"}
-                    </CardTitle>
-                    <CardDescription className="text-white/40 font-mono text-[10px] uppercase tracking-[0.2em]">
-                        {mode === 'login' ? "Enter your campus credentials" : "Join the campus network today"}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleAuth} className="space-y-6">
-                        <div className="space-y-2">
-                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest">Email Address</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                                <Input
-                                    type="email"
-                                    placeholder="name@university.edu"
-                                    className="input-glow-bottom pl-6 h-12 uppercase text-xs"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-md relative z-10"
+            >
+                <Card className="glass-card border-white shadow-2xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
+                    <CardHeader className="text-center space-y-4 pb-8 pt-10">
+                        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 mx-auto mb-2 shadow-sm">
+                            {mode === 'login' ? <LogIn className="text-indigo-600 w-8 h-8" /> : <UserPlus className="text-indigo-600 w-8 h-8" />}
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-white/40 uppercase font-mono text-[10px] tracking-widest">Password</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
-                                <Input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    className="input-glow-bottom pl-6 h-12 uppercase text-xs"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                            </div>
+                            <CardTitle className="text-3xl font-black tracking-tighter uppercase text-slate-900 leading-none">
+                                {mode === 'login' ? "Welcome Back" : "Start Connecting"}
+                            </CardTitle>
+                            <CardDescription className="text-slate-400 font-mono text-[10px] uppercase tracking-[0.3em] font-bold">
+                                {mode === 'login' ? "Access your campus network" : "Join your academic community"}
+                            </CardDescription>
                         </div>
-
-                        {error && (
-                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono uppercase tracking-widest text-center">
-                                {error}
+                    </CardHeader>
+                    <CardContent className="px-10 pb-10">
+                        <form onSubmit={handleAuth} className="space-y-8">
+                            <div className="space-y-3">
+                                <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Email Address</Label>
+                                <div className="relative group">
+                                    <Mail className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-400 transition-colors" />
+                                    <Input
+                                        type="email"
+                                        placeholder="NAME@UNIVERSITY.EDU"
+                                        className="input-glow-bottom pl-6 h-12 uppercase text-xs font-black tracking-widest text-slate-800 placeholder:text-slate-200"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                    />
+                                </div>
                             </div>
-                        )}
+                            <div className="space-y-3">
+                                <Label className="text-slate-400 uppercase font-black text-[10px] tracking-widest">Password</Label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-indigo-400 transition-colors" />
+                                    <Input
+                                        type="password"
+                                        placeholder="••••••••"
+                                        className="input-glow-bottom pl-6 h-12 uppercase text-xs font-black tracking-widest text-slate-800 placeholder:text-slate-200"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full h-14 rounded-2xl bg-white text-black font-black uppercase text-xs tracking-widest hover:bg-white/90 shadow-xl"
-                        >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : mode === 'login' ? "Initialize Login" : "Initialize Account"}
-                        </Button>
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest text-center"
+                                >
+                                    System Alert: {error}
+                                </motion.div>
+                            )}
 
-                        <div className="text-center pt-4">
-                            <button
-                                type="button"
-                                onClick={() => router.push(mode === 'login' ? "/signup" : "/login")}
-                                className="text-white/40 font-mono text-[10px] uppercase tracking-widest hover:text-cyan-400 transition-colors"
+                            <Button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full h-16 rounded-2xl bg-indigo-600 text-white font-black uppercase text-xs tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95"
                             >
-                                {mode === 'login' ? "New here? Create an account" : "Already have an account? Login"}
-                            </button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                                    <span className="flex items-center gap-2">
+                                        {mode === 'login' ? "Initialize Login" : "Initialize Account"}
+                                        <Sparkles className="w-4 h-4" />
+                                    </span>
+                                )}
+                            </Button>
+
+                            <div className="text-center pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => router.push(mode === 'login' ? "/signup" : "/login")}
+                                    className="text-slate-400 font-black text-[10px] uppercase tracking-widest hover:text-indigo-600 transition-colors"
+                                >
+                                    {mode === 'login' ? "New here? Create profile" : "Member? Login to hub"}
+                                </button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+            </motion.div>
         </div>
     );
 }

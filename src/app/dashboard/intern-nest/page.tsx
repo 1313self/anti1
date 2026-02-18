@@ -1,6 +1,6 @@
 "use client";
 
-import PillarPlaceholder from "@/components/PillarPlaceholder";
+import { PillarPlaceholder } from "@/components/PillarPlaceholder";
 
 export default function InternNestPage() {
     return (
