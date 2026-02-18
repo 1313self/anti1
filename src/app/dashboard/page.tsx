@@ -119,34 +119,56 @@ export default function DashboardPage() {
                     />
                 </div>
 
-                {/* Secondary Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-                    <motion.div whileHover={{ y: -5 }} className="glass-card p-10 rounded-[2.5rem] md:col-span-2 group border-indigo-50/50">
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="space-y-1">
-                                <h3 className="text-2xl font-black uppercase text-slate-800 tracking-tight">Campus <span className="text-indigo-600">Sync</span></h3>
-                                <p className="text-slate-400 font-mono text-[10px] uppercase tracking-widest">Real-time Pulse Feed</p>
+                {/* Version Status */}
+                <div className="pt-6">
+                    <motion.div
+                        whileHover={{ y: -5 }}
+                        className="glass-card p-10 rounded-[2.5rem] bg-white text-slate-900 relative overflow-hidden group border border-rose-100 shadow-2xl shadow-rose-100/20"
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-rose-500/[0.05] to-transparent" />
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8 py-2">
+                            <div className="space-y-4">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-black uppercase tracking-widest">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                                    Development Mode
+                                </div>
+                                <div>
+                                    <h3 className="text-4xl font-black uppercase tracking-tighter leading-none text-rose-600">Phase 1</h3>
+                                    <p className="text-slate-400 text-[11px] font-black uppercase tracking-[0.4em] mt-2">(Pilot)</p>
+                                </div>
                             </div>
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 group-hover:rotate-12 transition-transform">
-                                <Zap className="w-6 h-6 text-indigo-600 animate-pulse" />
+
+                            <div className="max-w-md">
+                                <p className="text-slate-900 text-xs font-bold leading-relaxed uppercase tracking-wide">
+                                    This website is under maintenance and is currently open for development purposes only.
+                                    Further improvements will include a paid database implementation and email verification.
+                                </p>
                             </div>
-                        </div>
-                        <div className="space-y-4">
-                            <ActivityRow color="indigo" text="Sarah Chen shared New React Notes in The Library" time="12m ago" />
-                            <ActivityRow color="emerald" text="System optimized your connection list in Discovery" time="1h ago" />
-                            <ActivityRow color="amber" text="Divyansh Thakur initiated EcoTrack AI in The Forge" time="2h ago" />
                         </div>
                     </motion.div>
+                </div>
 
-                    <motion.div whileHover={{ y: -5 }} className="glass-card p-10 rounded-[2.5rem] bg-indigo-600 text-white relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
-                        <div className="relative z-10 h-full flex flex-col justify-between">
-                            <div className="space-y-4">
-                                <Star className="w-10 h-10 text-white opacity-20" />
-                                <h3 className="text-3xl font-black uppercase tracking-tight leading-none">University <br /> Pro</h3>
-                                <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em]">Unlock Advanced Networking</p>
-                            </div>
-                            <Button className="w-full bg-white text-indigo-600 hover:bg-slate-50 rounded-2xl font-black uppercase text-[10px] tracking-widest h-14 mt-8 shadow-xl">Upgrade Account</Button>
+                {/* Professional Developer Notice */}
+                <div className="pt-8 pb-12 flex flex-col items-center gap-4">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex items-center gap-4 px-6 py-4 rounded-3xl bg-slate-50 border border-slate-100 group hover:bg-white hover:shadow-2xl hover:shadow-rose-100/20 transition-all duration-500"
+                    >
+                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center shadow-sm group-hover:rotate-12 transition-transform duration-500">
+                            <Sparkles className="w-5 h-5 text-rose-600" />
+                        </div>
+                        <div className="flex flex-col pr-6 border-r border-slate-200">
+                            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 group-hover:text-rose-600 transition-colors">Engineering</span>
+                            <p className="text-[11px] font-bold text-slate-800 uppercase tracking-tight mt-0.5 leading-none">
+                                Built with <span className="text-rose-600 font-extrabold">Next.js</span>
+                            </p>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Architect</span>
+                            <p className="text-[11px] font-black text-slate-900 uppercase tracking-tighter mt-0.5 leading-none">
+                                Divyansh and <span className="text-rose-600">Team</span>
+                            </p>
                         </div>
                     </motion.div>
                 </div>
@@ -155,23 +177,6 @@ export default function DashboardPage() {
     );
 }
 
-function ActivityRow({ color, text, time }: { color: 'indigo' | 'emerald' | 'amber', text: string, time: string }) {
-    const colors = {
-        indigo: "bg-indigo-400 shadow-indigo-200",
-        emerald: "bg-emerald-400 shadow-emerald-200",
-        amber: "bg-amber-400 shadow-amber-200"
-    };
-
-    return (
-        <div className="flex items-center justify-between p-5 rounded-[2rem] bg-slate-50/50 border border-slate-100/50 group/row hover:bg-white hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
-            <div className="flex items-center gap-5">
-                <span className={`w-2.5 h-2.5 rounded-full ${colors[color]} shadow-lg`} />
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-tight">{text}</span>
-            </div>
-            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{time}</span>
-        </div>
-    );
-}
 
 function GridItem({ icon, title, desc, href, color }: { icon: React.ReactNode, title: string, desc: string, href: string, color: string }) {
     const colorClasses: Record<string, string> = {
