@@ -1,51 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Terminal, Plus, MessageSquare, Users as UsersIcon,
     ArrowLeft, Rocket, Code, Lightbulb, Target,
-    CheckCircle2, Clock
+    CheckCircle2, Clock, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-
-const SAMPLE_PROJECTS = [
-    {
-        id: "p1",
-        name: "EcoTrack AI",
-        lead: "Divyansh Thakur",
-        vision: "Real-time carbon footprint analysis for campus residents.",
-        needs: ["React", "Python", "Data Science"],
-        members: 3,
-        status: "Recruiting",
-        type: "Software"
-    },
-    {
-        id: "p2",
-        name: "Campus Crave",
-        lead: "Zoe Williams",
-        vision: "Hyper-local marketplace for student-made goods and services.",
-        needs: ["Marketing", "UI Design", "Logistics"],
-        members: 2,
-        status: "In Progress",
-        type: "Business"
-    },
-    {
-        id: "p3",
-        name: "Solar Study Hub",
-        lead: "Marcus Gao",
-        vision: "Creating off-grid outdoor study spaces powered by modular solar.",
-        needs: ["Hardware", "Eng", "Sustainability"],
-        members: 5,
-        status: "Idea Phase",
-        type: "Engineering"
-    }
-];
+import { getProjects } from "../featureActions";
 
 export default function ForgePage() {
+    const [projects, setProjects] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function loadProjects() {
+            setLoading(true);
+            const result = await getProjects();
+            if (result.success) {
+                setProjects(result.projects || []);
+            }
+            setLoading(false);
+        }
+        loadProjects();
+    }, []);
+
     return (
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/[0.03] blur-[120px] rounded-full" />
@@ -77,72 +60,93 @@ export default function ForgePage() {
                     </Button>
                 </header>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                    <AnimatePresence>
-                        {SAMPLE_PROJECTS.map((project, index) => (
-                            <motion.div
-                                key={project.id}
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: index * 0.1 }}
-                                className="h-full"
-                            >
-                                <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white shadow-lg shadow-slate-200/40 h-full flex flex-col">
-                                    <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
-                                        <div className="flex justify-between items-start">
-                                            <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${project.type === 'Software' ? 'bg-indigo-50 text-indigo-600' : project.type === 'Business' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                                {project.type === 'Software' ? <Code className="w-4 h-4 md:w-5 md:h-5" /> : project.type === 'Business' ? <Target className="w-4 h-4 md:w-5 md:h-5" /> : <Lightbulb className="w-4 h-4 md:w-5 md:h-5" />}
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+                        <Terminal className="w-12 h-12 text-slate-100" />
+                        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Firing Up Furnaces...</p>
+                    </div>
+                ) : projects.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                        <AnimatePresence>
+                            {projects.map((project, index) => (
+                                <motion.div
+                                    key={project.id}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="h-full"
+                                >
+                                    <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white shadow-lg shadow-slate-200/40 h-full flex flex-col">
+                                        <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
+                                            <div className="flex justify-between items-start">
+                                                <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${project.type === 'Software' ? 'bg-indigo-50 text-indigo-600' : project.type === 'Business' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    {project.type === 'Software' ? <Code className="w-4 h-4 md:w-5 md:h-5" /> : project.type === 'Business' ? <Target className="w-4 h-4 md:w-5 md:h-5" /> : <Lightbulb className="w-4 h-4 md:w-5 md:h-5" />}
+                                                </div>
+                                                <Badge variant="outline" className="border-slate-100 text-slate-400 font-black text-[8px] md:text-[9px] px-2 md:px-3 h-5 md:h-6 uppercase tracking-widest">
+                                                    {project.status}
+                                                </Badge>
                                             </div>
-                                            <Badge variant="outline" className="border-slate-100 text-slate-400 font-black text-[8px] md:text-[9px] px-2 md:px-3 h-5 md:h-6 uppercase tracking-widest">
-                                                {project.status}
-                                            </Badge>
-                                        </div>
 
-                                        <div className="space-y-1 md:space-y-2">
-                                            <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tight leading-none group-hover:text-indigo-600 transition-colors truncate">
-                                                {project.name}
-                                            </h2>
-                                            <p className="text-slate-400 font-bold text-[9px] md:text-[10px] uppercase tracking-widest truncate">Lead: {project.lead}</p>
-                                        </div>
-
-                                        <p className="text-[11px] md:text-xs text-slate-600 leading-relaxed font-bold italic border-l-2 border-slate-100 pl-4 line-clamp-2 md:line-clamp-none">
-                                            &ldquo;{project.vision}&rdquo;
-                                        </p>
-
-                                        <div className="space-y-2 md:space-y-3">
-                                            <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-300 tracking-[0.2em]">Seeking Talent:</span>
-                                            <div className="flex flex-wrap gap-1.5 md:gap-2">
-                                                {project.needs.map(skill => (
-                                                    <Badge key={skill} className="text-[7px] md:text-[8px] bg-white border-slate-100 text-slate-500 font-black tracking-widest px-1.5 md:px-2 h-4 md:h-5 uppercase shadow-sm">
-                                                        {skill}
-                                                    </Badge>
-                                                ))}
+                                            <div className="space-y-1 md:space-y-2">
+                                                <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tight leading-none group-hover:text-indigo-600 transition-colors truncate">
+                                                    {project.name}
+                                                </h2>
+                                                <p className="text-slate-400 font-bold text-[9px] md:text-[10px] uppercase tracking-widest truncate">Project Lead</p>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    <CardContent className="px-6 md:px-8 pb-6 md:pb-8 pt-0 mt-auto">
-                                        <div className="flex items-center justify-between pt-4 md:pt-6 border-t border-slate-50 gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex -space-x-1.5 md:-space-x-2">
-                                                    {[...Array(3)].map((_, i) => (
-                                                        <div key={i} className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[7px] md:text-[8px] font-black text-slate-400">
-                                                            {String.fromCharCode(65 + i)}
-                                                        </div>
+                                            <p className="text-[11px] md:text-xs text-slate-600 leading-relaxed font-bold italic border-l-2 border-slate-100 pl-4 line-clamp-2 md:line-clamp-none">
+                                                &ldquo;{project.vision}&rdquo;
+                                            </p>
+
+                                            <div className="space-y-2 md:space-y-3">
+                                                <span className="text-[8px] md:text-[9px] font-black uppercase text-slate-300 tracking-[0.2em]">Seeking Talent:</span>
+                                                <div className="flex flex-wrap gap-1.5 md:gap-2">
+                                                    {project.needs?.map((skill: string) => (
+                                                        <Badge key={skill} className="text-[7px] md:text-[8px] bg-white border-slate-100 text-slate-500 font-black tracking-widest px-1.5 md:px-2 h-4 md:h-5 uppercase shadow-sm">
+                                                            {skill}
+                                                        </Badge>
                                                     ))}
                                                 </div>
-                                                <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">+{project.members} Team</span>
                                             </div>
-                                            <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[8px] md:text-[10px] tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg shadow-indigo-100">
-                                                Request Seat
-                                            </Button>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </div>
+
+                                        <CardContent className="px-6 md:px-8 pb-6 md:pb-8 pt-0 mt-auto">
+                                            <div className="flex items-center justify-between pt-4 md:pt-6 border-t border-slate-50 gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex -space-x-1.5 md:-space-x-2">
+                                                        {[...Array(Math.min(3, project.members_count || 1))].map((_, i) => (
+                                                            <div key={i} className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[7px] md:text-[8px] font-black text-slate-400">
+                                                                {String.fromCharCode(65 + i)}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">+{project.members_count || 1} Team</span>
+                                                </div>
+                                                <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[8px] md:text-[10px] tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg shadow-indigo-100">
+                                                    Request Seat
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+                        <div className="w-24 h-24 rounded-[2rem] bg-slate-900 flex items-center justify-center border border-slate-800 shadow-xl shadow-slate-200 animate-float">
+                            <Rocket className="w-10 h-10 text-amber-500" />
+                        </div>
+                        <div className="space-y-3">
+                            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Forge Is Cold</h3>
+                            <p className="text-slate-400 font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No active innovation projects found. Great ventures start with a single initialization.</p>
+                        </div>
+                        <Button className="bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Initialize Project
+                        </Button>
+                    </div>
+                )}
             </main>
         </div>
     );

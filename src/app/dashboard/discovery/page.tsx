@@ -90,14 +90,14 @@ export default function DiscoveryPage() {
                     <Info className="w-8 h-8 text-rose-500" />
                 </div>
                 <div className="space-y-2">
-                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Access Alert</h3>
+                    <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Synergy Engine Offline</h3>
                     <p className="text-slate-500 font-bold max-w-xs">{error}</p>
                 </div>
-                <div className="flex gap-4">
-                    <Button variant="outline" className="rounded-xl px-8 h-12 uppercase font-black text-[10px] tracking-widest border-slate-200 text-slate-400 hover:bg-slate-50" onClick={() => window.location.reload()}>Retry Protocol</Button>
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <Button variant="outline" className="rounded-xl px-8 h-12 uppercase font-black text-[10px] tracking-widest border-slate-200 text-slate-400 hover:bg-slate-50" onClick={() => window.location.reload()}>Retry Diagnostics</Button>
                     <Link href="/onboarding">
                         <Button className="rounded-xl px-8 h-12 bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-indigo-700 shadow-xl shadow-indigo-100">
-                            Initialize Onboarding
+                            {error.includes("not found") ? "Initialize Profile" : "Update Profile Bio"}
                         </Button>
                     </Link>
                 </div>

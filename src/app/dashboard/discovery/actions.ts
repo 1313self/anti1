@@ -12,10 +12,39 @@ export async function findConnections(userId: string) {
             .eq('id', userId)
             .single();
 
-        if (userError || !userProfile || !userProfile.embedding) {
+        if (userError || !userProfile) {
             return {
                 success: false,
-                error: "Your profile is incomplete. Please finish the onboarding process to activate the Discovery Engine.",
+                error: "Your profile was not found. Please complete the onboarding protocol to initialize your digital identity.",
+                onboardingRequired: true
+            };
+        }
+
+        // Auto-heal missing embeddings if bio exists
+        if (!userProfile.embedding && userProfile.bio) {
+            console.log("Discovery Engine: Missing vector data detected. Initiating auto-healing for user:", userId);
+            const embedding = await generateEmbedding(userProfile.bio);
+            if (embedding) {
+                const { error: updateError } = await supabaseAdmin
+                    .from('profiles')
+                    .update({ embedding })
+                    .eq('id', userId);
+
+                if (!updateError) {
+                    userProfile.embedding = embedding;
+                    console.log("Discovery Engine: Profile healed successfully.");
+                } else {
+                    console.error("Discovery Engine: Healing failed (database error):", updateError);
+                }
+            } else {
+                console.error("Discovery Engine: Healing failed (AI generation error). Check Gemini API Key.");
+            }
+        }
+
+        if (!userProfile.embedding) {
+            return {
+                success: false,
+                error: "Your profile is incomplete. Specifically, your AI Vector Data is missing. Please update your bio to activate the Discovery Engine.",
                 onboardingRequired: true
             };
         }
