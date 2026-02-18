@@ -8,26 +8,72 @@ import {
     CheckCircle2, Building2, Calendar, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { getGigs } from "../featureActions";
+import { getGigs, createGig } from "../featureActions";
+import { supabase } from "@/lib/supabase";
 
 export default function HustlePage() {
     const [gigs, setGigs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function loadGigs() {
-            setLoading(true);
-            const result = await getGigs();
-            if (result.success) {
-                setGigs(result.gigs || []);
-            }
-            setLoading(false);
+    // Modal & Form State
+    const [showPostModal, setShowPostModal] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [newGig, setNewGig] = useState({
+        role: "",
+        company: "",
+        type: "Part-time",
+        compensation: "",
+        deadline: "",
+        tags: "",
+        hot: false
+    });
+
+    const loadGigs = async () => {
+        setLoading(true);
+        const result = await getGigs();
+        if (result.success) {
+            setGigs(result.gigs || []);
         }
+        setLoading(false);
+    };
+
+    useEffect(() => {
         loadGigs();
     }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert("Please log in to post an opportunity.");
+                return;
+            }
+
+            const result = await createGig({
+                ...newGig,
+                tags: newGig.tags.split(",").map(t => t.trim()).filter(t => t !== ""),
+                user_id: user.id
+            });
+
+            if (result.success) {
+                setShowPostModal(false);
+                setNewGig({ role: "", company: "", type: "Part-time", compensation: "", deadline: "", tags: "", hot: false });
+                loadGigs();
+            } else {
+                alert("Posting failed: " + result.error);
+            }
+        } catch (err) {
+            alert("An error occurred while posting.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
@@ -54,10 +100,13 @@ export default function HustlePage() {
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <Button variant="outline" className="flex-1 md:flex-none rounded-2xl border-slate-100 bg-white hover:bg-slate-50 px-6 md:px-8 h-14 md:h-16 uppercase font-black text-[10px] tracking-widest text-slate-500 transition-all shadow-sm">
-                            <Filter className="w-4 h-4 mr-2" />
-                            Filters
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <Button
+                            onClick={() => setShowPostModal(true)}
+                            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-8 h-14 md:h-16 shadow-xl transition-all hover:scale-105"
+                        >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Post Opportunity
                         </Button>
                     </div>
                 </header>
@@ -75,16 +124,17 @@ export default function HustlePage() {
                         </div>
                     ) : gigs.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                            <AnimatePresence>
+                            <AnimatePresence mode="popLayout">
                                 {gigs.map((gig, index) => (
                                     <motion.div
                                         key={gig.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.1 }}
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        transition={{ delay: index * 0.05 }}
                                     >
-                                        <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white shadow-lg shadow-slate-200/40 hover:shadow-rose-100/50 transition-all cursor-pointer">
-                                            <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6">
+                                        <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white shadow-lg shadow-slate-200/40 hover:shadow-rose-100/50 transition-all cursor-pointer h-full">
+                                            <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6 flex flex-col h-full">
                                                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                                     <div className="space-y-1 min-w-0">
                                                         <div className="flex items-center gap-2 mb-2">
@@ -110,7 +160,7 @@ export default function HustlePage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-wrap gap-1.5 md:gap-2">
+                                                <div className="flex flex-wrap gap-1.5 md:gap-2 flex-grow">
                                                     {gig.tags?.map((tag: string) => (
                                                         <Badge key={tag} className="text-[7px] md:text-[8px] bg-slate-50 border-slate-100 text-slate-400 font-black tracking-widest px-1.5 md:px-2 h-4 md:h-5 uppercase shadow-sm">
                                                             {tag}
@@ -142,7 +192,10 @@ export default function HustlePage() {
                                 <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Market Is Quiet</h3>
                                 <p className="text-slate-400 font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No active campus gigs found. The professional network is ready for the first opportunity.</p>
                             </div>
-                            <Button className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105">
+                            <Button
+                                onClick={() => setShowPostModal(true)}
+                                className="bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105"
+                            >
                                 <Sparkles className="w-4 h-4 mr-2" />
                                 Post Opportunity
                             </Button>
@@ -155,12 +208,142 @@ export default function HustlePage() {
                     <div className="relative z-10 space-y-4">
                         <h3 className="text-3xl font-black uppercase tracking-tight">Hire Campus Talent</h3>
                         <p className="text-white/60 max-w-md mx-auto text-sm font-medium">Looking for collaborators or interns? Post your academic gig to the entire university network.</p>
-                        <Button className="bg-white text-indigo-600 hover:bg-slate-100 rounded-2xl px-12 h-16 font-black uppercase text-xs tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95">
+                        <Button
+                            onClick={() => setShowPostModal(true)}
+                            className="bg-white text-indigo-600 hover:bg-slate-100 rounded-2xl px-12 h-16 font-black uppercase text-xs tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95"
+                        >
                             Post Opportunity
                         </Button>
                     </div>
                 </div>
             </main>
+
+            {/* Post Modal */}
+            <AnimatePresence>
+                {showPostModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowPostModal(false)}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-white"
+                        >
+                            <div className="p-8 md:p-10 space-y-8">
+                                <div className="space-y-2 text-center">
+                                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Post Opportunity</h2>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Connect with Campus Talent</p>
+                                </div>
+
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Role/Title</label>
+                                                <Input
+                                                    required
+                                                    value={newGig.role}
+                                                    onChange={e => setNewGig({ ...newGig, role: e.target.value })}
+                                                    placeholder="E.G. WEB DEVELOPER"
+                                                    className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Company/Project</label>
+                                                <Input
+                                                    required
+                                                    value={newGig.company}
+                                                    onChange={e => setNewGig({ ...newGig, company: e.target.value })}
+                                                    placeholder="E.G. TECH SOC"
+                                                    className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Type</label>
+                                                <select
+                                                    value={newGig.type}
+                                                    onChange={e => setNewGig({ ...newGig, type: e.target.value })}
+                                                    className="w-full rounded-xl border border-slate-100 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-white outline-none focus:ring-2 focus:ring-rose-100 transition-all cursor-pointer"
+                                                >
+                                                    <option>Part-time</option>
+                                                    <option>Full-time</option>
+                                                    <option>Internship</option>
+                                                    <option>Freelance</option>
+                                                    <option>One-time</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Compensation</label>
+                                                <Input
+                                                    required
+                                                    value={newGig.compensation}
+                                                    onChange={e => setNewGig({ ...newGig, compensation: e.target.value })}
+                                                    placeholder="E.G. $20/HR OR STIPEND"
+                                                    className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Deadline</label>
+                                            <Input
+                                                required
+                                                value={newGig.deadline}
+                                                onChange={e => setNewGig({ ...newGig, deadline: e.target.value })}
+                                                placeholder="E.G. FEB 28, 2026"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Tags (Comma separated)</label>
+                                            <Input
+                                                value={newGig.tags}
+                                                onChange={e => setNewGig({ ...newGig, tags: e.target.value })}
+                                                placeholder="E.G. REACT, TAILWIND, REMOTE"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-3 pt-2">
+                                            <input
+                                                type="checkbox"
+                                                id="hot-gig"
+                                                checked={newGig.hot}
+                                                onChange={e => setNewGig({ ...newGig, hot: e.target.checked })}
+                                                className="w-5 h-5 rounded border-rose-200 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                            />
+                                            <label htmlFor="hot-gig" className="text-[10px] font-black uppercase tracking-widest text-slate-600 cursor-pointer">Mark as "Hot" Opportunity (Urgent)</label>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 pt-4">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => setShowPostModal(false)}
+                                            className="flex-1 rounded-xl h-14 uppercase font-black text-[10px] tracking-widest text-slate-400"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            disabled={submitting}
+                                            className="flex-2 rounded-xl h-14 bg-rose-600 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-rose-100 hover:scale-105 transition-all"
+                                        >
+                                            {submitting ? "Processing..." : "Deploy Hustle"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

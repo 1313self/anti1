@@ -21,7 +21,7 @@ export async function findConnections(userId: string) {
         }
 
         // Auto-heal missing embeddings if bio exists
-        if (!userProfile.embedding && userProfile.bio) {
+        if (!userProfile.embedding && userProfile.bio?.trim()) {
             console.log("Discovery Engine: Missing vector data detected. Initiating auto-healing for user:", userId);
             const embedding = await generateEmbedding(userProfile.bio);
             if (embedding) {
@@ -44,7 +44,7 @@ export async function findConnections(userId: string) {
         if (!userProfile.embedding) {
             return {
                 success: false,
-                error: "Your profile is incomplete. Specifically, your AI Vector Data is missing. Please update your bio to activate the Discovery Engine.",
+                error: "Discovery Engine Activation Failed: A descriptive bio is required for synergy analysis. Please head to your profile to complete this setup.",
                 onboardingRequired: true
             };
         }

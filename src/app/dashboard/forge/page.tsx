@@ -8,26 +8,70 @@ import {
     CheckCircle2, Clock, Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { getProjects } from "../featureActions";
+import { getProjects, createProject } from "../featureActions";
+import { supabase } from "@/lib/supabase";
 
 export default function ForgePage() {
     const [projects, setProjects] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function loadProjects() {
-            setLoading(true);
-            const result = await getProjects();
-            if (result.success) {
-                setProjects(result.projects || []);
-            }
-            setLoading(false);
+    // Modal & Form State
+    const [showInitiateModal, setShowInitiateModal] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [newProject, setNewProject] = useState({
+        name: "",
+        vision: "",
+        type: "Software",
+        needs: "",
+        status: "Ideation"
+    });
+
+    const loadProjects = async () => {
+        setLoading(true);
+        const result = await getProjects();
+        if (result.success) {
+            setProjects(result.projects || []);
         }
+        setLoading(false);
+    };
+
+    useEffect(() => {
         loadProjects();
     }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert("Please log in to initiate a project.");
+                return;
+            }
+
+            const result = await createProject({
+                ...newProject,
+                needs: newProject.needs.split(",").map(n => n.trim()).filter(n => n !== ""),
+                user_id: user.id
+            });
+
+            if (result.success) {
+                setShowInitiateModal(false);
+                setNewProject({ name: "", vision: "", type: "Software", needs: "", status: "Ideation" });
+                loadProjects();
+            } else {
+                alert("Initiation failed: " + result.error);
+            }
+        } catch (err) {
+            alert("An error occurred during initiation.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
@@ -54,7 +98,10 @@ export default function ForgePage() {
                         </div>
                     </div>
 
-                    <Button className="w-full lg:w-auto bg-slate-900 text-white hover:bg-slate-800 rounded-2xl px-8 md:px-10 h-14 md:h-16 font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95">
+                    <Button
+                        onClick={() => setShowInitiateModal(true)}
+                        className="w-full lg:w-auto bg-slate-900 text-white hover:bg-slate-800 rounded-2xl px-8 md:px-10 h-14 md:h-16 font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95"
+                    >
                         <Plus className="w-3 h-3 md:w-4 md:h-4 mr-2" />
                         Initiate Project
                     </Button>
@@ -67,13 +114,14 @@ export default function ForgePage() {
                     </div>
                 ) : projects.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                        <AnimatePresence>
+                        <AnimatePresence mode="popLayout">
                             {projects.map((project, index) => (
                                 <motion.div
                                     key={project.id}
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: index * 0.1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ delay: index * 0.05 }}
                                     className="h-full"
                                 >
                                     <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white shadow-lg shadow-slate-200/40 h-full flex flex-col">
@@ -123,7 +171,7 @@ export default function ForgePage() {
                                                     <span className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">+{project.members_count || 1} Team</span>
                                                 </div>
                                                 <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[8px] md:text-[10px] tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg shadow-indigo-100">
-                                                    Request Seat
+                                                    Join
                                                 </Button>
                                             </div>
                                         </CardContent>
@@ -141,13 +189,124 @@ export default function ForgePage() {
                             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Forge Is Cold</h3>
                             <p className="text-slate-400 font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No active innovation projects found. Great ventures start with a single initialization.</p>
                         </div>
-                        <Button className="bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105">
+                        <Button
+                            onClick={() => setShowInitiateModal(true)}
+                            className="bg-slate-900 hover:bg-slate-800 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105"
+                        >
                             <Plus className="w-4 h-4 mr-2" />
                             Initialize Project
                         </Button>
                     </div>
                 )}
             </main>
+
+            {/* Initiate Modal */}
+            <AnimatePresence>
+                {showInitiateModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowInitiateModal(false)}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-white"
+                        >
+                            <div className="p-8 md:p-10 space-y-8">
+                                <div className="space-y-2 text-center">
+                                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Initiate Project</h2>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Start your journey in the Forge</p>
+                                </div>
+
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Project Name</label>
+                                            <Input
+                                                required
+                                                value={newProject.name}
+                                                onChange={e => setNewProject({ ...newProject, name: e.target.value })}
+                                                placeholder="E.G. AI STUDY BUDDY"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Vision / Description</label>
+                                            <textarea
+                                                required
+                                                value={newProject.vision}
+                                                onChange={e => setNewProject({ ...newProject, vision: e.target.value })}
+                                                placeholder="DESCRIBE YOUR VISION..."
+                                                className="w-full rounded-xl border border-slate-100 p-4 text-xs font-bold tracking-widest outline-none focus:ring-2 focus:ring-amber-100 transition-all min-h-[100px] resize-none"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Type</label>
+                                                <select
+                                                    value={newProject.type}
+                                                    onChange={e => setNewProject({ ...newProject, type: e.target.value })}
+                                                    className="w-full rounded-xl border border-slate-100 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-white outline-none focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer"
+                                                >
+                                                    <option>Software</option>
+                                                    <option>Hardware</option>
+                                                    <option>Business</option>
+                                                    <option>Research</option>
+                                                    <option>Social</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Current Status</label>
+                                                <select
+                                                    value={newProject.status}
+                                                    onChange={e => setNewProject({ ...newProject, status: e.target.value })}
+                                                    className="w-full rounded-xl border border-slate-100 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-white outline-none focus:ring-2 focus:ring-amber-100 transition-all cursor-pointer"
+                                                >
+                                                    <option>Ideation</option>
+                                                    <option>Development</option>
+                                                    <option>Prototyping</option>
+                                                    <option>Launched</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Seeking Talent (Skills needed)</label>
+                                            <Input
+                                                value={newProject.needs}
+                                                onChange={e => setNewProject({ ...newProject, needs: e.target.value })}
+                                                placeholder="E.G. REACT, MARKETING, UI/UX"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 pt-4">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => setShowInitiateModal(true)}
+                                            className="flex-1 rounded-xl h-14 uppercase font-black text-[10px] tracking-widest text-slate-400"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            disabled={submitting}
+                                            className="flex-2 rounded-xl h-14 bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-slate-200 hover:scale-105 transition-all"
+                                        >
+                                            {submitting ? "Processing..." : "Ignite Forge"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

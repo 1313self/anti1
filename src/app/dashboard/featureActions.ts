@@ -20,6 +20,28 @@ export async function getResources() {
     }
 }
 
+export async function createResource(data: {
+    title: string;
+    type: string;
+    author_name: string;
+    university: string;
+    tags: string[];
+    user_id: string;
+}) {
+    try {
+        const { error } = await supabaseAdmin
+            .from('resources')
+            .insert([data]);
+
+        if (error) throw error;
+        revalidatePath("/dashboard/library");
+        return { success: true };
+    } catch (error) {
+        console.error("Error creating resource:", error);
+        return { success: false, error: (error as Error).message };
+    }
+}
+
 // --- Gigs (Hustle) ---
 
 export async function getGigs() {
@@ -37,6 +59,30 @@ export async function getGigs() {
     }
 }
 
+export async function createGig(data: {
+    role: string;
+    company: string;
+    type: string;
+    compensation: string;
+    deadline: string;
+    tags: string[];
+    user_id: string;
+    hot?: boolean;
+}) {
+    try {
+        const { error } = await supabaseAdmin
+            .from('gigs')
+            .insert([data]);
+
+        if (error) throw error;
+        revalidatePath("/dashboard/hustle");
+        return { success: true };
+    } catch (error) {
+        console.error("Error creating gig:", error);
+        return { success: false, error: (error as Error).message };
+    }
+}
+
 // --- Projects (Forge) ---
 
 export async function getProjects() {
@@ -50,6 +96,28 @@ export async function getProjects() {
         return { success: true, projects: data };
     } catch (error) {
         console.error("Error fetching projects:", error);
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function createProject(data: {
+    name: string;
+    vision: string;
+    type: string;
+    needs: string[];
+    user_id: string;
+    status?: string;
+}) {
+    try {
+        const { error } = await supabaseAdmin
+            .from('projects')
+            .insert([{ ...data, members_count: 1 }]);
+
+        if (error) throw error;
+        revalidatePath("/dashboard/forge");
+        return { success: true };
+    } catch (error) {
+        console.error("Error creating project:", error);
         return { success: false, error: (error as Error).message };
     }
 }

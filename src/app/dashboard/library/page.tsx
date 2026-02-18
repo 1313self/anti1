@@ -12,25 +12,69 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { getResources } from "../featureActions";
+import { getResources, createResource } from "../featureActions";
+import { supabase } from "@/lib/supabase";
 
 export default function LibraryPage() {
     const [search, setSearch] = useState("");
     const [bookmarked, setBookmarked] = useState<string[]>([]);
     const [resources, setResources] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isNavigating, setIsNavigating] = useState(false);
+
+    // Modal & Form State
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [newResource, setNewResource] = useState({
+        title: "",
+        type: "Notes",
+        author_name: "",
+        university: "",
+        tags: ""
+    });
+
+    const loadResources = async () => {
+        setLoading(true);
+        const result = await getResources();
+        if (result.success) {
+            setResources(result.resources || []);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
-        async function loadResources() {
-            setLoading(true);
-            const result = await getResources();
-            if (result.success) {
-                setResources(result.resources || []);
-            }
-            setLoading(false);
-        }
         loadResources();
     }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                alert("Please log in to submit a resource.");
+                return;
+            }
+
+            const result = await createResource({
+                ...newResource,
+                tags: newResource.tags.split(",").map(t => t.trim()).filter(t => t !== ""),
+                user_id: user.id
+            });
+
+            if (result.success) {
+                setShowSubmitModal(false);
+                setNewResource({ title: "", type: "Notes", author_name: "", university: "", tags: "" });
+                loadResources();
+            } else {
+                alert("Submission failed: " + result.error);
+            }
+        } catch (err) {
+            alert("An error occurred during submission.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const filtered = resources.filter(r =>
         r.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -68,14 +112,23 @@ export default function LibraryPage() {
                         </div>
                     </div>
 
-                    <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1.5 md:p-2 rounded-xl md:rounded-2xl w-full lg:w-96 shadow-lg shadow-slate-200/50">
-                        <Search className="w-4 h-4 md:w-5 md:h-5 text-slate-300 ml-2 md:ml-3 mr-2 my-auto" />
-                        <Input
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder="SEARCH RESOURCES..."
-                            className="border-none bg-transparent shadow-none focus-visible:ring-0 uppercase font-black text-[9px] md:text-[10px] tracking-widest text-slate-800 h-9 md:h-10"
-                        />
+                    <div className="flex flex-col sm:flex-row gap-4 items-center">
+                        <div className="flex bg-white/80 backdrop-blur-xl border border-white p-1.5 md:p-2 rounded-xl md:rounded-2xl w-full lg:w-96 shadow-lg shadow-slate-200/50">
+                            <Search className="w-4 h-4 md:w-5 md:h-5 text-slate-300 ml-2 md:ml-3 mr-2 my-auto" />
+                            <Input
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="SEARCH RESOURCES..."
+                                className="border-none bg-transparent shadow-none focus-visible:ring-0 uppercase font-black text-[9px] md:text-[10px] tracking-widest text-slate-800 h-9 md:h-10"
+                            />
+                        </div>
+                        <Button
+                            onClick={() => setShowSubmitModal(true)}
+                            className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest rounded-xl px-6 h-12 shadow-lg transition-all hover:scale-105"
+                        >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Submit
+                        </Button>
                     </div>
                 </header>
 
@@ -86,13 +139,14 @@ export default function LibraryPage() {
                     </div>
                 ) : filtered.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-                        <AnimatePresence>
+                        <AnimatePresence mode="popLayout">
                             {filtered.map((resource, index) => (
                                 <motion.div
                                     key={resource.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    transition={{ delay: index * 0.05 }}
                                 >
                                     <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white shadow-lg shadow-slate-200/40 hover:shadow-indigo-100/50 transition-all h-full">
                                         <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6 flex flex-col h-full">
@@ -116,7 +170,7 @@ export default function LibraryPage() {
                                                 </h2>
                                                 <div className="flex items-center gap-2 text-slate-400 font-bold text-[9px] md:text-[10px] uppercase tracking-widest truncate">
                                                     <FileText className="w-3 h-3" />
-                                                    {resource.author_name ? `By ${resource.author_name}` : 'Shared Resource'} {resource.university && `• ${resource.university.slice(0, 15)}...`}
+                                                    {resource.author_name ? `By ${resource.author_name}` : 'Shared Resource'} {resource.university && `• ${resource.university}`}
                                                 </div>
                                             </div>
 
@@ -157,13 +211,121 @@ export default function LibraryPage() {
                             <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Library Is Silent</h3>
                             <p className="text-slate-400 font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No real-world resources are currently available in the archives. Be the first to initialize the network with shared knowledge.</p>
                         </div>
-                        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105">
+                        <Button
+                            onClick={() => setShowSubmitModal(true)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105"
+                        >
                             <Sparkles className="w-4 h-4 mr-2" />
                             Submit Resource
                         </Button>
                     </div>
                 )}
             </main>
+
+            {/* Submission Modal */}
+            <AnimatePresence>
+                {showSubmitModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowSubmitModal(false)}
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-white"
+                        >
+                            <div className="p-8 md:p-10 space-y-8">
+                                <div className="space-y-2 text-center">
+                                    <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Submit Resource</h2>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contribute to the Archive</p>
+                                </div>
+
+                                <form onSubmit={handleSubmit} className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Title</label>
+                                            <Input
+                                                required
+                                                value={newResource.title}
+                                                onChange={e => setNewResource({ ...newResource, title: e.target.value })}
+                                                placeholder="E.G. ADVANCED CALCULUS NOTES"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Type</label>
+                                                <select
+                                                    value={newResource.type}
+                                                    onChange={e => setNewResource({ ...newResource, type: e.target.value })}
+                                                    className="w-full rounded-xl border border-slate-100 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-white outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
+                                                >
+                                                    <option>Notes</option>
+                                                    <option>Slides</option>
+                                                    <option>Ebook</option>
+                                                    <option>Exam</option>
+                                                    <option>Guide</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Author</label>
+                                                <Input
+                                                    required
+                                                    value={newResource.author_name}
+                                                    onChange={e => setNewResource({ ...newResource, author_name: e.target.value })}
+                                                    placeholder="YOUR NAME"
+                                                    className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">University</label>
+                                            <Input
+                                                required
+                                                value={newResource.university}
+                                                onChange={e => setNewResource({ ...newResource, university: e.target.value })}
+                                                placeholder="E.G. HARVARD"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Tags (Comma separated)</label>
+                                            <Input
+                                                value={newResource.tags}
+                                                onChange={e => setNewResource({ ...newResource, tags: e.target.value })}
+                                                placeholder="E.G. MATH, CS, SEMESTER 1"
+                                                className="rounded-xl border-slate-100 h-12 text-xs uppercase font-bold tracking-widest"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 pt-4">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => setShowSubmitModal(false)}
+                                            className="flex-1 rounded-xl h-14 uppercase font-black text-[10px] tracking-widest text-slate-400"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            disabled={submitting}
+                                            className="flex-2 rounded-xl h-14 bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest shadow-xl shadow-indigo-100 hover:scale-105 transition-all"
+                                        >
+                                            {submitting ? "Processing..." : "Submit to Vault"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
