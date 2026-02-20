@@ -27,7 +27,10 @@ export default function ProfilePage() {
         academic_aim: "",
         hobbies: "",
         bio: "",
+
         study_window: "",
+        instagram: "",
+        discord: "",
     });
 
     useEffect(() => {
@@ -54,6 +57,8 @@ export default function ProfilePage() {
                     hobbies: Array.isArray(data.hobbies) ? data.hobbies.join(", ") : data.hobbies || "",
                     bio: data.bio || "",
                     study_window: data.study_window || "",
+                    instagram: data.instagram || "",
+                    discord: data.discord || "",
                 });
             } else if (error) {
                 console.error("Profile load error:", error);
@@ -78,6 +83,8 @@ export default function ProfilePage() {
             hobbies: formData.hobbies,
             bio: formData.bio,
             studyWindow: formData.study_window,
+            instagram: formData.instagram,
+            discord: formData.discord,
         });
 
         if (!result.success) {
@@ -192,6 +199,32 @@ export default function ProfilePage() {
                                 </div>
                             </div>
 
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                        <span className="text-lg">📸</span> Instagram
+                                    </Label>
+                                    <Input
+                                        value={formData.instagram}
+                                        onChange={e => setFormData({ ...formData, instagram: e.target.value })}
+                                        className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
+                                        placeholder="@username"
+                                    />
+                                </div>
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                        <span className="text-lg">💬</span> Discord
+                                    </Label>
+                                    <Input
+                                        value={formData.discord}
+                                        onChange={e => setFormData({ ...formData, discord: e.target.value })}
+                                        className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
+                                        placeholder="username#1234"
+                                    />
+                                </div>
+                            </div>
+
                             {error && (
                                 <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-center">
                                     System Error: {error}
@@ -213,6 +246,6 @@ export default function ProfilePage() {
                     </CardContent>
                 </Card>
             </main>
-        </div>
+        </div >
     );
 }

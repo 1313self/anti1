@@ -22,6 +22,7 @@ const steps = [
     { id: 1, title: "Personal Info", description: "What's your name and focus?", icon: UserCircle },
     { id: 2, title: "Interests", description: "What are you studying?", icon: Search },
     { id: 3, title: "Your Story", description: "A quick intro about you.", icon: FileText },
+    { id: 4, title: "Socials", description: "Connect beyond the platform.", icon: Globe },
 ];
 
 const MAJOR_TAGS = [
@@ -62,6 +63,8 @@ export default function OnboardingPage() {
         studyWindow: "",
         peakHours: "neutral" as 'morning' | 'night' | 'neutral',
         bio: "",
+        instagram: "",
+        discord: "",
     });
 
     useEffect(() => {
@@ -110,6 +113,8 @@ export default function OnboardingPage() {
             studyWindow: formData.studyWindow,
             peakHours: formData.peakHours,
             bio: formData.bio,
+            instagram: formData.instagram,
+            discord: formData.discord,
         });
         setLoading(false);
 
@@ -279,6 +284,38 @@ export default function OnboardingPage() {
                                     </div>
                                 )}
 
+
+
+                                {currentStep === 4 && (
+                                    <div className="space-y-6 md:space-y-8">
+                                        <div className="space-y-3 md:space-y-4">
+                                            <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                                <span className="text-lg">📸</span> Instagram (Optional)
+                                            </Label>
+                                            <Input
+                                                placeholder="@username or profile link"
+                                                className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
+                                                value={formData.instagram}
+                                                onChange={e => setFormData({ ...formData, instagram: e.target.value })}
+                                            />
+                                            <p className="text-[10px] text-slate-400 font-medium">We'll link this to your discovery card.</p>
+                                        </div>
+
+                                        <div className="space-y-3 md:space-y-4">
+                                            <Label className="text-slate-400 uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                                <span className="text-lg">💬</span> Discord (Optional)
+                                            </Label>
+                                            <Input
+                                                placeholder="username or invite link"
+                                                className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
+                                                value={formData.discord}
+                                                onChange={e => setFormData({ ...formData, discord: e.target.value })}
+                                            />
+                                            <p className="text-[10px] text-slate-400 font-medium">Share your handle or a server invite.</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex gap-3 md:gap-4 pt-2 md:pt-4">
                                     <Button
                                         variant="ghost"
@@ -313,19 +350,21 @@ export default function OnboardingPage() {
             </div>
 
             {/* Founder Signature Footer - Only on Last Step */}
-            {currentStep === 3 && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="absolute bottom-8 text-center space-y-1"
-                >
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">EraConnect Engineering</p>
-                    <p className="text-[11px] font-bold text-slate-400">
-                        Developer And Founder <span className="text-indigo-500 font-black">Divyansh Thakur</span>
-                    </p>
-                </motion.div>
-            )}
+            {
+                currentStep === 4 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 }}
+                        className="absolute bottom-8 text-center space-y-1"
+                    >
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">EraConnect Engineering</p>
+                        <p className="text-[11px] font-bold text-slate-400">
+                            Developer And Founder <span className="text-indigo-500 font-black">Divyansh Thakur</span>
+                        </p>
+                    </motion.div>
+                )
+            }
 
             <style jsx global>{`
               .custom-scrollbar::-webkit-scrollbar { width: 5px; }
@@ -333,6 +372,6 @@ export default function OnboardingPage() {
               .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
               .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
             `}</style>
-        </div>
+        </div >
     );
 }

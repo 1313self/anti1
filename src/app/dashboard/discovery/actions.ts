@@ -75,12 +75,14 @@ export async function findConnections(userId: string) {
             console.log(`Discovery Engine: Rate limit reached for user ${userId}. Using fallback mechanism.`);
         }
 
+        const remainingAttempts = Math.max(0, DAILY_DISCOVERY_LIMIT - (useFallback ? currentCount : currentCount + 1));
+
         // 2. Search for similar profiles using match_profiles RPC (Admin bypass RLS)
-        const { data: matches, error: matchError } = await supabaseAdmin.rpc('match_profiles', {
+        const { data: matches, error: matchError } = await (supabaseAdmin.rpc('match_profiles', {
             query_embedding: userProfile.embedding,
             match_threshold: 0.5,
             match_count: 10,
-        });
+        }) as any).select('id, full_name, bio, hobbies, academic_aim, similarity, instagram, discord');
 
         if (matchError) throw matchError;
 
@@ -88,7 +90,7 @@ export async function findConnections(userId: string) {
         const filteredMatches = (matches || []).filter((m: any) => m.id !== userId);
 
         if (filteredMatches.length === 0) {
-            return { success: true, connections: [] };
+            return { success: true, connections: [], remainingAttempts };
         }
 
         let finalConnections = [];
@@ -147,14 +149,14 @@ export async function findConnections(userId: string) {
             } catch (aiError) {
                 console.error("Gemini API Error (falling back to vector scores):", aiError);
                 // If API fails, fallback to vector scores
-                finalConnections = mapFallbackResults(filteredMatches);
+                finalConnections = mapFallbackResults(filteredMatches, userProfile);
             }
         } else {
             // 3b. Fallback Mode: Use Vector Scores
-            finalConnections = mapFallbackResults(filteredMatches);
+            finalConnections = mapFallbackResults(filteredMatches, userProfile);
         }
 
-        return { success: true, connections: finalConnections, limitReached: useFallback };
+        return { success: true, connections: finalConnections, limitReached: useFallback, remainingAttempts };
 
     } catch (error) {
         console.error("Error in findConnections:", error);
@@ -162,42 +164,35 @@ export async function findConnections(userId: string) {
     }
 }
 
-function mapFallbackResults(matches: any[]) {
+// Helper to generate a deterministic reason based on profile data
+function generateDeterministicReason(userProfile: any, matchProfile: any): string {
+    const sharedHobbies = userProfile.hobbies?.filter((h: string) => matchProfile.hobbies?.includes(h)) || [];
+    const sameAim = userProfile.academic_aim === matchProfile.academic_aim;
+    const samePeak = userProfile.peak_hours === matchProfile.peak_hours;
+
+    if (sameAim && sharedHobbies.length > 0) {
+        return `You both study ${matchProfile.academic_aim} and enjoy ${sharedHobbies[0]}.`;
+    }
+    if (sameAim) {
+        return `You are both focused on ${matchProfile.academic_aim}.`;
+    }
+    if (sharedHobbies.length > 0) {
+        return `You both share an interest in ${sharedHobbies.join(" and ")}.`;
+    }
+    if (samePeak) {
+        return `You both prefer being active during the ${matchProfile.peak_hours}.`;
+    }
+
+    return "High potential for collaboration based on academic synergy.";
+}
+
+function mapFallbackResults(matches: any[], userProfile: any) {
     return matches.map((m: any) => ({
         ...m,
         // Convert similarity (0-1) to score (0-100), ensuring int
         compatibility_score: Math.round((m.similarity || 0) * 100),
-        connection_reason: "High compatibility based on shared interests and academic pathways (AI Limit Reached)."
+        connection_reason: generateDeterministicReason(userProfile, m)
     }));
 }
 
-export async function generateIcebreaker(connectionId: string, currentUserId: string) {
-    try {
-        const { data: participants, error } = await supabaseAdmin
-            .from('profiles')
-            .select('*')
-            .in('id', [connectionId, currentUserId]);
 
-        if (error || participants.length < 2) throw new Error("Could not find profiles");
-
-        const targetProfile = participants.find((p: any) => p.id === connectionId);
-        const userProfile = participants.find((p: any) => p.id === currentUserId);
-
-        const prompt = `
-      You are a Professional Liaison for "EraConnect".
-      Create ONE elegant and personalized conversation starter between two students:
-      User: ${userProfile.full_name}, Hobbies: ${userProfile.hobbies?.join(", ")}, Academic Aim: ${userProfile.academic_aim}
-      Collaborator: ${targetProfile.full_name}, Hobbies: ${targetProfile.hobbies?.join(", ")}, Academic Aim: ${targetProfile.academic_aim}
-
-      The icebreaker should be ONE sentence focusing on academic synergy or professional growth.
-      Output format: Just the sentence.
-    `;
-
-        const flashModel = getFlashModel(); // Get rotated client
-        const result = await flashModel.generateContent(prompt);
-        return { success: true, icebreaker: result.response.text().trim() };
-    } catch (error) {
-        console.error("Error in generateIcebreaker:", error);
-        return { success: false, error: (error as Error).message };
-    }
-}

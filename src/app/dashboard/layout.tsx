@@ -13,6 +13,17 @@ import {
     User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
+import { LogOut, Plus } from "lucide-react";
 
 const navItems = [
     { name: "Discovery Engine", href: "/dashboard/discovery", icon: Sparkles },
@@ -29,6 +40,20 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const [hasMissingSocials, setHasMissingSocials] = useState(false);
+
+    useEffect(() => {
+        async function checkProfile() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase.from('profiles').select('instagram, discord').eq('id', user.id).single();
+                if (data && (!data.instagram || !data.discord)) {
+                    setHasMissingSocials(true);
+                }
+            }
+        }
+        checkProfile();
+    }, []);
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -56,11 +81,42 @@ export default function DashboardLayout({
                 </nav>
 
                 <div className="flex items-center gap-2 md:gap-4">
-                    <Link href="/dashboard/profile">
-                        <Button variant="ghost" size="icon" className="w-8 h-8 md:w-10 md:h-10 rounded-xl border border-slate-100 hover:bg-slate-50">
-                            <User className="w-4 h-4 text-slate-600" />
-                        </Button>
-                    </Link>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="w-8 h-8 md:w-10 md:h-10 rounded-xl border border-slate-100 hover:bg-slate-50 relative">
+                                <User className="w-4 h-4 text-slate-600" />
+                                {hasMissingSocials && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse" />
+                                )}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 glass-card border-slate-100 rounded-xl p-2">
+                            <DropdownMenuLabel className="text-[10px] uppercase font-black tracking-widest text-slate-400 px-2 py-1.5">My Account</DropdownMenuLabel>
+                            <DropdownMenuSeparator className="bg-slate-100" />
+                            <Link href="/dashboard/profile">
+                                <DropdownMenuItem className="rounded-lg text-xs font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-600 cursor-pointer p-2">
+                                    <User className="w-3.5 h-3.5 mr-2" />
+                                    Edit Profile
+                                </DropdownMenuItem>
+                            </Link>
+                            {hasMissingSocials && (
+                                <Link href="/dashboard/profile">
+                                    <DropdownMenuItem className="rounded-lg text-xs font-bold text-rose-600 focus:bg-rose-50 focus:text-rose-700 cursor-pointer p-2 bg-rose-50/50 mt-1">
+                                        <Plus className="w-3.5 h-3.5 mr-2" />
+                                        Add Socials
+                                    </DropdownMenuItem>
+                                </Link>
+                            )}
+                            <DropdownMenuSeparator className="bg-slate-100" />
+                            <DropdownMenuItem
+                                className="rounded-lg text-xs font-bold text-slate-500 focus:bg-slate-50 focus:text-slate-700 cursor-pointer p-2"
+                                onClick={() => supabase.auth.signOut().then(() => window.location.href = "/login")}
+                            >
+                                <LogOut className="w-3.5 h-3.5 mr-2" />
+                                Sign Out
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </header>
 
