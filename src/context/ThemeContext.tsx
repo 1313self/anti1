@@ -19,13 +19,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const root = document.documentElement;
         if (peakHours === 'morning') {
             root.style.setProperty('--primary', 'oklch(0.7 0.25 45)'); // Warm orange-red
+            root.style.setProperty('--primary-foreground', '#ffffff');
             root.style.setProperty('--ring', 'oklch(0.7 0.25 45)');
         } else if (peakHours === 'night') {
             root.style.setProperty('--primary', 'oklch(0.6 0.2 260)'); // Deep blue-purple
+            root.style.setProperty('--primary-foreground', '#ffffff');
             root.style.setProperty('--ring', 'oklch(0.6 0.2 260)');
         } else {
-            root.style.setProperty('--primary', 'oklch(0.707 0.165 254.624)'); // Cosmic Purple
-            root.style.setProperty('--ring', 'oklch(0.707 0.165 254.624)');
+            root.style.setProperty('--primary', '#6366f1'); // Indigo 500 (Default Cosmic)
+            root.style.setProperty('--primary-foreground', '#ffffff');
+            root.style.setProperty('--ring', '#6366f1');
         }
 
         // Removed force dark mode for light professional theme

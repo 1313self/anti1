@@ -1,14 +1,34 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const keys = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4
+].filter(Boolean) as string[];
 
-export const embeddingModel = genAI.getGenerativeModel({ model: "models/gemini-embedding-001" });
-export const flashModel = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+if (keys.length === 0) {
+    console.warn("Warning: No Gemini API keys found in environment variables.");
+}
+
+function getClient() {
+    const key = keys[Math.floor(Math.random() * keys.length)];
+    return new GoogleGenerativeAI(key || "");
+}
+
+export function getFlashModel() {
+    return getClient().getGenerativeModel({ model: "gemini-3-flash-preview" });
+}
+
+export function getEmbeddingModel() {
+    return getClient().getGenerativeModel({ model: "models/gemini-embedding-001" });
+}
 
 export async function generateEmbedding(text: string) {
-    if (!process.env.GEMINI_API_KEY) return null;
+    if (keys.length === 0) return null;
     try {
-        const result = await embeddingModel.embedContent({
+        const model = getEmbeddingModel();
+        const result = await model.embedContent({
             content: { role: 'user', parts: [{ text }] },
             // @ts-ignore
             outputDimensionality: 768

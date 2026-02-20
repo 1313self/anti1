@@ -1,7 +1,9 @@
 "use server";
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { generateEmbedding, flashModel } from "@/lib/gemini";
+import { generateEmbedding, getFlashModel } from "@/lib/gemini";
+
+const DAILY_DISCOVERY_LIMIT = 3;
 
 export async function findConnections(userId: string) {
     try {
@@ -49,6 +51,30 @@ export async function findConnections(userId: string) {
             };
         }
 
+        // --- Rate Limiting Logic ---
+        const today = new Date().toISOString().split('T')[0];
+        let currentCount = userProfile.discovery_count || 0;
+        const lastDate = userProfile.last_discovery_date;
+
+        if (lastDate !== today) {
+            currentCount = 0; // Reset for new day
+        }
+
+        const useFallback = currentCount >= DAILY_DISCOVERY_LIMIT;
+
+        if (!useFallback) {
+            // Increment count if we are going to use the API
+            await supabaseAdmin
+                .from('profiles')
+                .update({
+                    discovery_count: currentCount + 1,
+                    last_discovery_date: today
+                })
+                .eq('id', userId);
+        } else {
+            console.log(`Discovery Engine: Rate limit reached for user ${userId}. Using fallback mechanism.`);
+        }
+
         // 2. Search for similar profiles using match_profiles RPC (Admin bypass RLS)
         const { data: matches, error: matchError } = await supabaseAdmin.rpc('match_profiles', {
             query_embedding: userProfile.embedding,
@@ -65,60 +91,84 @@ export async function findConnections(userId: string) {
             return { success: true, connections: [] };
         }
 
-        // 3. Use Gemini 1.5 Flash to analyze connections
-        const prompt = `
-      You are an AI Synergy Analyst for "EraConnect", a professional campus networking platform.
-      Target User Profile:
-      - Name: ${userProfile.full_name}
-      - Bio: ${userProfile.bio}
-      - Hobbies: ${userProfile.hobbies?.join(", ")}
-      - Academic Aim: ${userProfile.academic_aim}
-      - Peak Hours: ${userProfile.peak_hours}
+        let finalConnections = [];
 
-      Potential Collaborators:
-      ${filteredMatches.map((m: any, i: number) => `
-      Collaborator ${i + 1}:
-      - Name: ${m.full_name}
-      - Bio: ${m.bio}
-      - Hobbies: ${m.hobbies?.join(", ")}
-      - Major: ${m.academic_aim}
-      `).join("\n")}
+        if (!useFallback) {
+            // 3a. Standard Mode: Use Gemini 1.5 Flash to analyze connections
+            try {
+                const prompt = `
+            You are an AI Synergy Analyst for "EraConnect", a professional campus networking platform.
+            Target User Profile:
+            - Name: ${userProfile.full_name}
+            - Bio: ${userProfile.bio}
+            - Hobbies: ${userProfile.hobbies?.join(", ")}
+            - Academic Aim: ${userProfile.academic_aim}
+            - Peak Hours: ${userProfile.peak_hours}
 
-      For each collaborator, provide:
-      1. A compatibility_score (1-100).
-      2. A connection_reason (One friendly, short sentence explaining why they are a good match).
+            Potential Collaborators:
+            ${filteredMatches.map((m: any, i: number) => `
+            Collaborator ${i + 1}:
+            - Name: ${m.full_name}
+            - Bio: ${m.bio}
+            - Hobbies: ${m.hobbies?.join(", ")}
+            - Major: ${m.academic_aim}
+            `).join("\n")}
 
-      Return the data in a strict JSON array format:
-      [
-        {"id": "match_id_1", "compatibility_score": 85, "connection_reason": "..."},
-        ...
-      ]
-      Ensure the order matches the potential collaborators provided.
-    `.trim();
+            For each collaborator, provide:
+            1. A compatibility_score (1-100).
+            2. A connection_reason (One friendly, short sentence explaining why they are a good match).
 
-        const result = await flashModel.generateContent(prompt);
-        const responseText = result.response.text();
+            Return the data in a strict JSON array format:
+            [
+                {"id": "match_id_1", "compatibility_score": 85, "connection_reason": "..."},
+                ...
+            ]
+            Ensure the order matches the potential collaborators provided.
+            `.trim();
 
-        // Extract JSON from response (handling potential markdown formatting)
-        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-        const analyzedMatches = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+                const flashModel = getFlashModel(); // Get rotated client
+                const result = await flashModel.generateContent(prompt);
+                const responseText = result.response.text();
 
-        // Combine data
-        const finalConnections = filteredMatches.map((m: any) => {
-            const analysis = analyzedMatches.find((a: any) => a.id === m.id) ||
-                analyzedMatches[filteredMatches.indexOf(m)]; // fallback by index
-            return {
-                ...m,
-                compatibility_score: analysis?.compatibility_score || 70,
-                connection_reason: analysis?.connection_reason || "You share similar academic interests."
-            };
-        });
+                // Extract JSON from response (handling potential markdown formatting)
+                const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+                const analyzedMatches = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 
-        return { success: true, connections: finalConnections };
+                // Combine data
+                finalConnections = filteredMatches.map((m: any) => {
+                    const analysis = analyzedMatches.find((a: any) => a.id === m.id) ||
+                        analyzedMatches[filteredMatches.indexOf(m)]; // fallback by index
+                    return {
+                        ...m,
+                        compatibility_score: analysis?.compatibility_score || 70,
+                        connection_reason: analysis?.connection_reason || "You share similar academic interests."
+                    };
+                });
+            } catch (aiError) {
+                console.error("Gemini API Error (falling back to vector scores):", aiError);
+                // If API fails, fallback to vector scores
+                finalConnections = mapFallbackResults(filteredMatches);
+            }
+        } else {
+            // 3b. Fallback Mode: Use Vector Scores
+            finalConnections = mapFallbackResults(filteredMatches);
+        }
+
+        return { success: true, connections: finalConnections, limitReached: useFallback };
+
     } catch (error) {
         console.error("Error in findConnections:", error);
         return { success: false, error: (error as Error).message };
     }
+}
+
+function mapFallbackResults(matches: any[]) {
+    return matches.map((m: any) => ({
+        ...m,
+        // Convert similarity (0-1) to score (0-100), ensuring int
+        compatibility_score: Math.round((m.similarity || 0) * 100),
+        connection_reason: "High compatibility based on shared interests and academic pathways (AI Limit Reached)."
+    }));
 }
 
 export async function generateIcebreaker(connectionId: string, currentUserId: string) {
@@ -143,6 +193,7 @@ export async function generateIcebreaker(connectionId: string, currentUserId: st
       Output format: Just the sentence.
     `;
 
+        const flashModel = getFlashModel(); // Get rotated client
         const result = await flashModel.generateContent(prompt);
         return { success: true, icebreaker: result.response.text().trim() };
     } catch (error) {
@@ -150,5 +201,3 @@ export async function generateIcebreaker(connectionId: string, currentUserId: st
         return { success: false, error: (error as Error).message };
     }
 }
-
-
