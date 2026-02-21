@@ -4,18 +4,18 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Briefcase, ArrowLeft, ExternalLink, TrendingUp,
-    Building2, Calendar, Sparkles, Search
+    Building2, Calendar, Sparkles, Search, Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { getGigs, createGig } from "../featureActions";
+import { getGigs, createGig, getBookmarkedGigIds, toggleBookmark } from "../featureActions";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
 
-const GIG_TYPES = ["All", "Part-time", "Full-time", "Internship", "Freelance", "One-time"];
+const GIG_TYPES = ["All", "Saved", "Part-time", "Full-time", "Internship", "Freelance", "One-time"];
 
 export default function HustlePage() {
     const { toast } = useToast();
@@ -23,6 +23,9 @@ export default function HustlePage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [activeFilter, setActiveFilter] = useState("All");
+    const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
+    const [togglingId, setTogglingId] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<any>(null);
 
     // Modal & Form State
     const [showPostModal, setShowPostModal] = useState(false);
@@ -50,17 +53,34 @@ export default function HustlePage() {
 
     useEffect(() => {
         loadGigs();
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+                setCurrentUser(user);
+                getBookmarkedGigIds(user.id).then(setBookmarkedIds);
+            }
+        });
     }, []);
+
+    const handleBookmark = async (gigId: string) => {
+        if (!currentUser) { toast("Log in to save opportunities.", "error"); return; }
+        setTogglingId(gigId);
+        const isBookmarked = bookmarkedIds.includes(gigId);
+        const result = await toggleBookmark(currentUser.id, gigId, isBookmarked);
+        if (result.success) {
+            setBookmarkedIds(prev => isBookmarked ? prev.filter(id => id !== gigId) : [...prev, gigId]);
+            toast(isBookmarked ? "Removed from saved." : "Opportunity saved!", isBookmarked ? "info" : "success");
+        } else {
+            toast("Could not save. Try again.", "error");
+        }
+        setTogglingId(null);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                toast("Please log in to post an opportunity.", "error");
-                return;
-            }
+            if (!user) { toast("Please log in to post an opportunity.", "error"); return; }
 
             const result = await createGig({
                 ...newGig,
@@ -76,7 +96,7 @@ export default function HustlePage() {
             } else {
                 toast("Posting failed: " + result.error, "error");
             }
-        } catch (err) {
+        } catch {
             toast("An error occurred while posting.", "error");
         } finally {
             setSubmitting(false);
@@ -88,6 +108,7 @@ export default function HustlePage() {
             g.role.toLowerCase().includes(search.toLowerCase()) ||
             g.company.toLowerCase().includes(search.toLowerCase()) ||
             (g.tags && g.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())));
+        if (activeFilter === "Saved") return matchesSearch && bookmarkedIds.includes(g.id);
         const matchesFilter = activeFilter === "All" || g.type === activeFilter;
         return matchesSearch && matchesFilter;
     });
@@ -141,12 +162,16 @@ export default function HustlePage() {
                             <button
                                 key={type}
                                 onClick={() => setActiveFilter(type)}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeFilter === type
-                                        ? "bg-primary text-white shadow-md"
-                                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeFilter === type
+                                    ? "bg-primary text-white shadow-md"
+                                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                                     }`}
                             >
+                                {type === "Saved" && <Heart className="w-3 h-3" />}
                                 {type}
+                                {type === "Saved" && bookmarkedIds.length > 0 && (
+                                    <span className="ml-0.5 bg-white/20 rounded-full text-[9px] px-1.5">{bookmarkedIds.length}</span>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -179,7 +204,7 @@ export default function HustlePage() {
                                         <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white/5 shadow-lg hover:shadow-primary/20 transition-all h-full">
                                             <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6 flex flex-col h-full">
                                                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                                                    <div className="space-y-1 min-w-0">
+                                                    <div className="space-y-1 min-w-0 flex-1">
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <Badge className="bg-secondary border-secondary text-muted-foreground font-bold text-[7px] md:text-[8px] px-2 md:px-3 h-5 uppercase tracking-widest">
                                                                 {gig.type}
@@ -197,9 +222,21 @@ export default function HustlePage() {
                                                             <Building2 className="w-3 h-3" /> {gig.company}
                                                         </div>
                                                     </div>
-                                                    <div className="text-left sm:text-right shrink-0">
-                                                        <div className="text-lg font-black text-foreground tracking-tight">{gig.compensation}</div>
-                                                        <div className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{gig.deadline}</div>
+                                                    <div className="flex flex-col items-end gap-2 shrink-0">
+                                                        <button
+                                                            onClick={() => handleBookmark(gig.id)}
+                                                            disabled={togglingId === gig.id}
+                                                            className={`p-2 rounded-xl transition-all hover:scale-110 ${bookmarkedIds.includes(gig.id)
+                                                                ? "text-rose-500 bg-rose-50 border border-rose-100"
+                                                                : "text-muted-foreground bg-secondary/50 hover:text-rose-400"
+                                                                }`}
+                                                        >
+                                                            <Heart className={`w-4 h-4 ${bookmarkedIds.includes(gig.id) ? "fill-current" : ""}`} />
+                                                        </button>
+                                                        <div className="text-right">
+                                                            <div className="text-lg font-black text-foreground tracking-tight">{gig.compensation}</div>
+                                                            <div className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{gig.deadline}</div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-wrap gap-1.5 md:gap-2 flex-grow">
@@ -227,14 +264,14 @@ export default function HustlePage() {
                     ) : (
                         <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
                             <div className="w-24 h-24 rounded-[2rem] bg-secondary/50 flex items-center justify-center border border-white/5 shadow-xl animate-float">
-                                <Briefcase className="w-10 h-10 text-muted-foreground" />
+                                {activeFilter === "Saved" ? <Heart className="w-10 h-10 text-muted-foreground" /> : <Briefcase className="w-10 h-10 text-muted-foreground" />}
                             </div>
                             <div className="space-y-3">
                                 <h3 className="text-2xl font-bold text-foreground uppercase tracking-tighter">
-                                    {search || activeFilter !== "All" ? "No Matches" : "Market Is Quiet"}
+                                    {activeFilter === "Saved" ? "No Saved Gigs" : search || activeFilter !== "All" ? "No Matches" : "Market Is Quiet"}
                                 </h3>
                                 <p className="text-muted-foreground font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">
-                                    {search || activeFilter !== "All" ? "Try a different search or filter." : "No active campus gigs found. Be the first to post."}
+                                    {activeFilter === "Saved" ? "Tap the heart icon on any gig to save it here." : search || activeFilter !== "All" ? "Try a different search or filter." : "No active campus gigs found. Be the first to post."}
                                 </p>
                             </div>
                             {!search && activeFilter === "All" && (

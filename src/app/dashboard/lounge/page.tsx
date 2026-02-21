@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     MessageSquare, Send, ArrowLeft, Hash, Loader2,
-    UserCircle, Trash2, AlertCircle
+    Trash2, AlertCircle, Smile
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,13 @@ interface Message {
     display_name: string;
     content: string;
     created_at: string;
+    channel: string;
+}
+
+interface Reaction {
+    message_id: string;
+    user_id: string;
+    emoji: string;
 }
 
 function formatTime(ts: string) {
@@ -24,10 +31,18 @@ function formatTime(ts: string) {
     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-const CHANNELS = ["general", "academic", "projects", "off-topic"];
+const CHANNELS = [
+    { id: "general", label: "#general" },
+    { id: "academic", label: "#study" },
+    { id: "projects", label: "#collabs" },
+    { id: "off-topic", label: "#rants" },
+];
+
+const EMOJI_OPTIONS = ["👍", "❤️", "😂", "🔥", "💡"];
 
 export default function LoungePage() {
     const [messages, setMessages] = useState<Message[]>([]);
+    const [reactions, setReactions] = useState<Reaction[]>([]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -35,6 +50,7 @@ export default function LoungePage() {
     const [displayName, setDisplayName] = useState("Anonymous");
     const [activeChannel, setActiveChannel] = useState("general");
     const [error, setError] = useState<string | null>(null);
+    const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -55,12 +71,12 @@ export default function LoungePage() {
         init();
     }, []);
 
-    // Load messages + subscribe to realtime
+    // Load messages + reactions, subscribe to realtime
     useEffect(() => {
         setLoading(true);
         setMessages([]);
+        setReactions([]);
 
-        // Fetch existing messages for this channel
         supabase
             .from("lounge_messages")
             .select("*")
@@ -69,42 +85,56 @@ export default function LoungePage() {
             .limit(100)
             .then(({ data, error }) => {
                 if (error) setError("Could not load messages.");
-                else setMessages(data || []);
+                else {
+                    const msgs = data || [];
+                    setMessages(msgs);
+
+                    // Fetch reactions for these messages if any
+                    if (msgs.length > 0) {
+                        const ids = msgs.map((m: Message) => m.id);
+                        supabase
+                            .from("lounge_reactions")
+                            .select("message_id, user_id, emoji")
+                            .in("message_id", ids)
+                            .then(({ data: rxData }) => {
+                                setReactions(rxData || []);
+                            });
+                    }
+                }
                 setLoading(false);
             });
 
-        // Subscribe to new messages
-        const channel = supabase
+        // Subscribe to messages
+        const msgChannel = supabase
             .channel(`lounge:${activeChannel}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "INSERT",
-                    schema: "public",
-                    table: "lounge_messages",
-                    filter: `channel=eq.${activeChannel}`,
-                },
+            .on("postgres_changes", { event: "INSERT", schema: "public", table: "lounge_messages", filter: `channel=eq.${activeChannel}` },
                 (payload) => {
-                    setMessages((prev) => {
+                    setMessages(prev => {
                         if (prev.some(m => m.id === payload.new.id)) return prev;
                         return [...prev, payload.new as Message];
                     });
-                }
-            )
-            .on(
-                "postgres_changes",
-                {
-                    event: "DELETE",
-                    schema: "public",
-                    table: "lounge_messages",
-                },
+                })
+            .on("postgres_changes", { event: "DELETE", schema: "public", table: "lounge_messages" },
                 (payload) => {
-                    setMessages((prev) => prev.filter(m => m.id !== payload.old.id));
-                }
-            )
+                    setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+                })
+            // Reactions realtime
+            .on("postgres_changes", { event: "INSERT", schema: "public", table: "lounge_reactions" },
+                (payload) => {
+                    setReactions(prev => {
+                        if (prev.some(r => r.message_id === payload.new.message_id && r.user_id === payload.new.user_id && r.emoji === payload.new.emoji)) return prev;
+                        return [...prev, payload.new as Reaction];
+                    });
+                })
+            .on("postgres_changes", { event: "DELETE", schema: "public", table: "lounge_reactions" },
+                (payload) => {
+                    setReactions(prev => prev.filter(r =>
+                        !(r.message_id === payload.old.message_id && r.user_id === payload.old.user_id && r.emoji === payload.old.emoji)
+                    ));
+                })
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        return () => { supabase.removeChannel(msgChannel); };
     }, [activeChannel]);
 
     // Auto-scroll
@@ -134,6 +164,27 @@ export default function LoungePage() {
         await supabase.from("lounge_messages").delete().eq("id", id);
     };
 
+    const handleReaction = async (messageId: string, emoji: string) => {
+        if (!currentUser) return;
+        const existing = reactions.find(r => r.message_id === messageId && r.user_id === currentUser.id && r.emoji === emoji);
+        if (existing) {
+            await supabase.from("lounge_reactions").delete()
+                .eq("message_id", messageId).eq("user_id", currentUser.id).eq("emoji", emoji);
+        } else {
+            await supabase.from("lounge_reactions").insert({ message_id: messageId, user_id: currentUser.id, emoji });
+        }
+    };
+
+    const getReactionCounts = (messageId: string) => {
+        const msgReactions = reactions.filter(r => r.message_id === messageId);
+        const counts: Record<string, number> = {};
+        msgReactions.forEach(r => { counts[r.emoji] = (counts[r.emoji] || 0) + 1; });
+        return counts;
+    };
+
+    const hasMyReaction = (messageId: string, emoji: string) =>
+        reactions.some(r => r.message_id === messageId && r.user_id === currentUser?.id && r.emoji === emoji);
+
     return (
         <div className="min-h-screen bg-background relative overflow-hidden flex flex-col">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-emerald-500/[0.03] blur-[120px] rounded-full pointer-events-none" />
@@ -159,26 +210,25 @@ export default function LoungePage() {
                         </div>
                     </div>
 
-                    {/* Live indicator */}
                     <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 self-start md:self-auto">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Realtime Active</span>
                     </div>
                 </header>
 
-                {/* Channels */}
+                {/* Channel Tabs */}
                 <div className="flex gap-2 flex-wrap">
                     {CHANNELS.map(ch => (
                         <button
-                            key={ch}
-                            onClick={() => setActiveChannel(ch)}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeChannel === ch
-                                    ? "bg-primary text-white shadow-md"
-                                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                            key={ch.id}
+                            onClick={() => setActiveChannel(ch.id)}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeChannel === ch.id
+                                ? "bg-primary text-white shadow-md"
+                                : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                                 }`}
                         >
                             <Hash className="w-3 h-3" />
-                            {ch}
+                            {ch.label.replace("#", "")}
                         </button>
                     ))}
                 </div>
@@ -203,14 +253,16 @@ export default function LoungePage() {
                                     <MessageSquare className="w-8 h-8 text-muted-foreground" />
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-sm font-black uppercase tracking-tight text-foreground">Silence in #{activeChannel}</p>
+                                    <p className="text-sm font-black uppercase tracking-tight text-foreground">Silence in {CHANNELS.find(c => c.id === activeChannel)?.label}</p>
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Be the first to transmit</p>
                                 </div>
                             </div>
                         ) : (
                             <AnimatePresence initial={false}>
-                                {messages.map((msg, i) => {
+                                {messages.map((msg) => {
                                     const isOwn = currentUser?.id === msg.user_id;
+                                    const reactionCounts = getReactionCounts(msg.id);
+                                    const hasReactions = Object.keys(reactionCounts).length > 0;
                                     return (
                                         <motion.div
                                             key={msg.id}
@@ -219,6 +271,8 @@ export default function LoungePage() {
                                             exit={{ opacity: 0, scale: 0.95 }}
                                             transition={{ duration: 0.2 }}
                                             className={`flex gap-3 group ${isOwn ? "flex-row-reverse" : ""}`}
+                                            onMouseEnter={() => setHoveredMsgId(msg.id)}
+                                            onMouseLeave={() => setHoveredMsgId(null)}
                                         >
                                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${isOwn ? "bg-primary text-white" : "bg-secondary text-muted-foreground"}`}>
                                                 {msg.display_name?.[0]?.toUpperCase() || "?"}
@@ -228,19 +282,49 @@ export default function LoungePage() {
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{isOwn ? "You" : msg.display_name}</span>
                                                     <span className="text-[8px] text-muted-foreground/60">{formatTime(msg.created_at)}</span>
                                                     {isOwn && (
-                                                        <button
-                                                            onClick={() => handleDelete(msg.id)}
-                                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500"
-                                                        >
+                                                        <button onClick={() => handleDelete(msg.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500">
                                                             <Trash2 className="w-3 h-3" />
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium leading-snug break-words ${isOwn
-                                                        ? "bg-primary text-white rounded-tr-sm"
-                                                        : "bg-secondary text-foreground rounded-tl-sm"
-                                                    }`}>
+                                                <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium leading-snug break-words ${isOwn ? "bg-primary text-white rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm"}`}>
                                                     {msg.content}
+                                                </div>
+
+                                                {/* Reactions row */}
+                                                <div className={`flex items-center gap-1 flex-wrap ${isOwn ? "justify-end" : ""}`}>
+                                                    {hasReactions && Object.entries(reactionCounts).map(([emoji, count]) => (
+                                                        <button
+                                                            key={emoji}
+                                                            onClick={() => handleReaction(msg.id, emoji)}
+                                                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all border ${hasMyReaction(msg.id, emoji)
+                                                                ? "bg-primary/10 border-primary/30 text-primary"
+                                                                : "bg-secondary/60 border-transparent text-muted-foreground hover:bg-secondary"
+                                                                }`}
+                                                        >
+                                                            <span>{emoji}</span>
+                                                            <span>{count}</span>
+                                                        </button>
+                                                    ))}
+
+                                                    {/* Emoji picker — show on hover */}
+                                                    {hoveredMsgId === msg.id && currentUser && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.8 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            className="flex items-center gap-0.5 bg-card border border-border rounded-full px-2 py-0.5 shadow-lg"
+                                                        >
+                                                            {EMOJI_OPTIONS.map(e => (
+                                                                <button
+                                                                    key={e}
+                                                                    onClick={() => handleReaction(msg.id, e)}
+                                                                    className={`text-sm hover:scale-125 transition-transform px-0.5 ${hasMyReaction(msg.id, e) ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
+                                                                >
+                                                                    {e}
+                                                                </button>
+                                                            ))}
+                                                        </motion.div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -258,7 +342,7 @@ export default function LoungePage() {
                                 ref={inputRef}
                                 value={input}
                                 onChange={e => setInput(e.target.value)}
-                                placeholder={`Message #${activeChannel}...`}
+                                placeholder={`Message ${CHANNELS.find(c => c.id === activeChannel)?.label}...`}
                                 maxLength={500}
                                 disabled={!currentUser || sending}
                                 className="flex-1 rounded-xl bg-secondary/50 border-border h-11 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"

@@ -1,16 +1,39 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
     ArrowRight, Users, Library, Terminal, Compass,
-    MessageSquare, Briefcase, Zap, Star, UserCircle, LogOut, Sparkles
+    MessageSquare, Briefcase, Zap, Star, UserCircle, LogOut, Sparkles,
+    Heart, BarChart3
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StudyBuddyToggle } from "@/components/StudyBuddyToggle";
 import { supabase } from "@/lib/supabase";
+import { getDashboardStats } from "./featureActions";
+
+function getGreeting(name: string) {
+    const hour = new Date().getHours();
+    const timeStr = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    return `${timeStr}${name ? ", " + name.split(" ")[0] : ""}`;
+}
 
 export default function DashboardPage() {
+    const [userName, setUserName] = useState("");
+    const [stats, setStats] = useState({ savedCount: 0, messageCount: 0 });
+
+    useEffect(() => {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (!user) return;
+            supabase.from("profiles").select("full_name").eq("id", user.id).single()
+                .then(({ data }) => { if (data?.full_name) setUserName(data.full_name); });
+            getDashboardStats(user.id).then(r => {
+                if (r.success) setStats({ savedCount: r.savedCount, messageCount: r.messageCount });
+            });
+        });
+    }, []);
+
     return (
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
             {/* Soft Ambient Light */}
@@ -28,9 +51,26 @@ export default function DashboardPage() {
                             <Sparkles className="w-3 h-3" />
                             <span>Era Connect Active</span>
                         </motion.div>
+                        {userName && (
+                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-muted-foreground font-bold text-sm md:text-base uppercase tracking-widest">
+                                {getGreeting(userName)} 👋
+                            </motion.p>
+                        )}
                         <h1 className="text-5xl sm:text-6xl md:text-8xl font-heading font-black tracking-tighter leading-[0.9] uppercase text-foreground break-words">
                             Your <span className="text-gradient">Hub</span>
                         </h1>
+                        {/* Stats strip */}
+                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="flex flex-wrap gap-3 pt-1">
+                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                <Heart className="w-3.5 h-3.5 text-rose-400" />
+                                <span>{stats.savedCount} saved</span>
+                            </div>
+                            <span className="text-border">·</span>
+                            <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>{stats.messageCount} messages</span>
+                            </div>
+                        </motion.div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3 md:gap-4">

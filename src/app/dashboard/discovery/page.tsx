@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Target, UserPlus, Users, Info, Radar, Loader2, Zap, Instagram, ExternalLink } from "lucide-react";
+import { MessageCircle, Target, UserPlus, Users, Info, Radar, Loader2, Zap, Instagram, ExternalLink, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,9 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useToast } from "@/components/ui/toast";
 
+const ACADEMIC_AIMS = ["Any", "Computer Science", "Design", "Business", "Law", "BioTech", "Fine Arts", "Engineering", "Psychology", "Intl Relations"];
+const PEAK_HOURS_OPTIONS = ["Any", "morning", "night"];
+
 export default function DiscoveryPage() {
     const { toast } = useToast();
     const [connections, setConnections] = useState<any[]>([]);
@@ -18,6 +21,17 @@ export default function DiscoveryPage() {
     const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
+
+    // Filters
+    const [peakFilter, setPeakFilter] = useState("Any");
+    const [aimFilter, setAimFilter] = useState("Any");
+
+    const filtered = useMemo(() => connections.filter(c => {
+        if (peakFilter !== "Any" && c.peak_hours !== peakFilter) return false;
+        if (aimFilter !== "Any" && !c.academic_aim?.toLowerCase().includes(aimFilter.toLowerCase())) return false;
+        return true;
+    }), [connections, peakFilter, aimFilter]);
+    const hasFilters = peakFilter !== "Any" || aimFilter !== "Any";
 
     useEffect(() => {
         async function getConnections() {
@@ -104,7 +118,7 @@ export default function DiscoveryPage() {
                     </div>
                     <div className="min-w-0">
                         <h1 className="text-3xl md:text-4xl font-black tracking-tighter uppercase text-slate-900 truncate">Discover <span className="text-gradient">People</span></h1>
-                        <p className="text-slate-400 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.2em] md:tracking-[0.3em] font-bold truncate">{connections.length} Top Recommendations</p>
+                        <p className="text-slate-400 font-mono text-[9px] md:text-[10px] uppercase tracking-[0.2em] md:tracking-[0.3em] font-bold truncate">{filtered.length} of {connections.length} Recommendations</p>
                     </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
@@ -126,9 +140,40 @@ export default function DiscoveryPage() {
                 </div>
             </div>
 
+            {/* Filter Bar */}
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                    <SlidersHorizontal className="w-3 h-3" />
+                    Filters:
+                </div>
+                {/* Peak hours */}
+                <div className="flex items-center gap-1.5">
+                    {PEAK_HOURS_OPTIONS.map(opt => (
+                        <button key={opt} onClick={() => setPeakFilter(opt)} className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${peakFilter === opt ? "bg-primary text-white border-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                            }`}>
+                            {opt === "morning" ? "☀️ Morning" : opt === "night" ? "🌙 Night" : "⏱ Any Hours"}
+                        </button>
+                    ))}
+                </div>
+                <span className="text-border">·</span>
+                {/* Academic aim */}
+                <select
+                    value={aimFilter}
+                    onChange={e => setAimFilter(e.target.value)}
+                    className="rounded-xl border border-border bg-secondary/50 text-foreground text-[9px] font-black uppercase tracking-widest px-3 h-8 outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer transition-all"
+                >
+                    {ACADEMIC_AIMS.map(a => <option key={a} className="bg-card text-foreground">{a}</option>)}
+                </select>
+                {hasFilters && (
+                    <button onClick={() => { setPeakFilter("Any"); setAimFilter("Any"); }} className="text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors">
+                        Clear ×
+                    </button>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                 <AnimatePresence>
-                    {connections.map((connection, index) => (
+                    {filtered.map((connection, index) => (
                         <motion.div
                             key={connection.id}
                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
