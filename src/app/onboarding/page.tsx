@@ -293,7 +293,7 @@ export default function OnboardingPage() {
                                                 <span className="text-lg">📸</span> Instagram (Optional)
                                             </Label>
                                             <Input
-                                                placeholder="@username or profile link"
+                                                placeholder="https://instagram.com/yourprofile"
                                                 className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
                                                 value={formData.instagram}
                                                 onChange={e => setFormData({ ...formData, instagram: e.target.value })}

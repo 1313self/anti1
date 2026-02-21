@@ -8,14 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { updateProfile } from "@/app/onboarding/actions";
-
+import { useToast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 import {
     User, Mail, Book, Heart, MessageSquare,
-    ArrowLeft, Save, Loader2, Sparkles, UserCircle
+    ArrowLeft, Save, Loader2, Sparkles, UserCircle, CheckCircle2
 } from "lucide-react";
 
 export default function ProfilePage() {
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -88,12 +89,28 @@ export default function ProfilePage() {
         });
 
         if (!result.success) {
-            setError(result.error || "Failed to update profile protocol.");
+            const msg = result.error || "Failed to update profile.";
+            setError(msg);
+            toast(msg, "error");
         } else {
+            toast("Profile updated successfully!", "success");
             router.push("/dashboard");
         }
         setSaving(false);
     };
+
+    // Profile completion calculation
+    const completionFields = [
+        formData.full_name,
+        formData.academic_aim,
+        formData.bio,
+        formData.hobbies,
+        formData.instagram,
+        formData.discord,
+    ];
+    const completedCount = completionFields.filter(f => f.trim().length > 0).length;
+    const completionPct = Math.round((completedCount / completionFields.length) * 100);
+    const completionColor = completionPct === 100 ? "bg-emerald-500" : completionPct >= 60 ? "bg-primary" : "bg-amber-500";
 
     if (loading) {
         return (
@@ -108,7 +125,7 @@ export default function ProfilePage() {
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/[0.03] blur-[120px] rounded-full" />
 
-            <main className="max-w-4xl mx-auto relative z-10 space-y-12">
+            <main className="max-w-4xl mx-auto relative z-10 space-y-8">
                 <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-4 md:pb-6">
                     <div className="space-y-4">
                         <Button
@@ -124,6 +141,37 @@ export default function ProfilePage() {
                         </h1>
                     </div>
                 </header>
+
+                {/* Profile Completion Bar */}
+                <div className="glass-card rounded-[2rem] p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Profile Completeness</p>
+                            <p className="text-2xl font-black text-foreground">{completionPct}%
+                                {completionPct === 100 && <CheckCircle2 className="inline ml-2 w-5 h-5 text-emerald-500" />}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{completedCount}/{completionFields.length} Fields</p>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mt-0.5">
+                                {completionPct === 100 ? "Profile Complete ✓" : "Complete your profile for better matches"}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+                        <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${completionPct}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                            className={`h-full rounded-full ${completionColor}`}
+                        />
+                    </div>
+                    {completionPct < 100 && (
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
+                            Fill in: {completionFields.map((f, i) => !f.trim() ? ["Name", "Academic Focus", "Bio", "Hobbies", "Instagram", "Discord"][i] : null).filter(Boolean).join(" · ")}
+                        </p>
+                    )}
+                </div>
 
                 <Card className="glass-card border-white shadow-2xl shadow-slate-200/50 rounded-[2rem] md:rounded-[3rem] overflow-hidden">
                     <CardHeader className="p-6 md:p-10 pb-4 md:pb-6 flex flex-row items-center gap-4 md:gap-6 border-b border-white bg-slate-50/50">
@@ -209,7 +257,7 @@ export default function ProfilePage() {
                                         value={formData.instagram}
                                         onChange={e => setFormData({ ...formData, instagram: e.target.value })}
                                         className="input-glow-bottom text-base md:text-lg font-black text-slate-800 placeholder:text-slate-200 h-12 md:h-14"
-                                        placeholder="@username"
+                                        placeholder="https://instagram.com/yourprofile"
                                     />
                                 </div>
                                 <div className="space-y-3 md:space-y-4">

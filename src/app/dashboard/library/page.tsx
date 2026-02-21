@@ -14,8 +14,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { getResources, createResource } from "../featureActions";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/toast";
 
 export default function LibraryPage() {
+    const { toast } = useToast();
     const [search, setSearch] = useState("");
     const [bookmarked, setBookmarked] = useState<string[]>([]);
     const [resources, setResources] = useState<any[]>([]);
@@ -52,7 +54,7 @@ export default function LibraryPage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                alert("Please log in to submit a resource.");
+                toast("Please log in to submit a resource.", "error");
                 return;
             }
 
@@ -65,12 +67,13 @@ export default function LibraryPage() {
             if (result.success) {
                 setShowSubmitModal(false);
                 setNewResource({ title: "", type: "Notes", author_name: "", university: "", tags: "" });
+                toast("Resource submitted successfully!", "success");
                 loadResources();
             } else {
-                alert("Submission failed: " + result.error);
+                toast("Submission failed: " + result.error, "error");
             }
         } catch (err) {
-            alert("An error occurred during submission.");
+            toast("An error occurred during submission.", "error");
         } finally {
             setSubmitting(false);
         }

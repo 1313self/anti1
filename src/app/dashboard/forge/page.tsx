@@ -14,8 +14,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { getProjects, createProject } from "../featureActions";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/toast";
 
 export default function ForgePage() {
+    const { toast } = useToast();
     const [projects, setProjects] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -49,7 +51,7 @@ export default function ForgePage() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                alert("Please log in to initiate a project.");
+                toast("Please log in to initiate a project.", "error");
                 return;
             }
 
@@ -61,13 +63,14 @@ export default function ForgePage() {
 
             if (result.success) {
                 setShowInitiateModal(false);
-                setNewProject({ name: "", vision: "", type: "Software", needs: "", status: "Ideation" });
+                setNewProject({ name: "", vision: "", type: "Web App", needs: "", status: "Recruiting" });
+                toast("Project initiated successfully!", "success");
                 loadProjects();
             } else {
-                alert("Initiation failed: " + result.error);
+                toast("Initiation failed: " + (result.error || "Unknown error"), "error");
             }
         } catch (err) {
-            alert("An error occurred during initiation.");
+            toast("An error occurred during initiation.", "error");
         } finally {
             setSubmitting(false);
         }

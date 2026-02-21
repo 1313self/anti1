@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { Outfit, Plus_Jakarta_Sans } from "next/font/google"; // Updated fonts
+import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { ToastProvider } from "@/components/ui/toast";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -31,7 +32,9 @@ export default function RootLayout({
         className={`${outfit.variable} ${jakarta.variable} antialiased font-body`}
       >
         <ThemeProvider>
-          {children}
+          <ToastProvider>
+            {children}
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

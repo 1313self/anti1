@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { findConnections } from "./actions";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { useToast } from "@/components/ui/toast";
 
 export default function DiscoveryPage() {
+    const { toast } = useToast();
     const [connections, setConnections] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
@@ -172,7 +174,7 @@ export default function DiscoveryPage() {
                                     <div className="flex gap-2">
                                         {connection.instagram && (
                                             <a
-                                                href={`https://instagram.com/${connection.instagram.replace('@', '')}`}
+                                                href={connection.instagram.startsWith('http') ? connection.instagram : `https://instagram.com/${connection.instagram.replace('@', '')}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex-1"
@@ -191,7 +193,7 @@ export default function DiscoveryPage() {
                                                 className="flex-1 rounded-xl border-indigo-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all h-8 md:h-10 text-slate-400"
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(connection.discord);
-                                                    alert(`Copied Discord handle: ${connection.discord}`);
+                                                    toast(`Discord copied: ${connection.discord}`, "success");
                                                 }}
                                             >
                                                 <ExternalLink className="w-3.5 h-3.5 md:w-4 md:h-4" />
@@ -202,7 +204,7 @@ export default function DiscoveryPage() {
                                     <div className="pt-2 md:pt-4 mt-auto">
                                         {connection.instagram ? (
                                             <a
-                                                href={`https://instagram.com/${connection.instagram.replace('@', '')}`}
+                                                href={connection.instagram.startsWith('http') ? connection.instagram : `https://instagram.com/${connection.instagram.replace('@', '')}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="block w-full"

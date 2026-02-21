@@ -24,6 +24,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 import { LogOut, Plus } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems = [
     { name: "Discovery Engine", href: "/dashboard/discovery", icon: Sparkles },
@@ -46,8 +47,8 @@ export default function DashboardLayout({
         async function checkProfile() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data } = await supabase.from('profiles').select('instagram, discord').eq('id', user.id).single();
-                if (data && (!data.instagram || !data.discord)) {
+                const { data } = await supabase.from('profiles').select('instagram').eq('id', user.id).single();
+                if (data && !data.instagram) {
                     setHasMissingSocials(true);
                 }
             }
@@ -80,7 +81,8 @@ export default function DashboardLayout({
                     ))}
                 </nav>
 
-                <div className="flex items-center gap-2 md:gap-4">
+                <div className="flex items-center gap-2 md:gap-3">
+                    <ThemeToggle />
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="w-8 h-8 md:w-10 md:h-10 rounded-xl border border-slate-100 hover:bg-slate-50 relative">
