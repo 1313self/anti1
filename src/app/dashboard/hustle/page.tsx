@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Briefcase, ArrowLeft, ExternalLink, TrendingUp,
-    Building2, Calendar, Sparkles, Search, Heart
+    Building2, Calendar, Sparkles, Search, Heart, Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,18 +14,21 @@ import Link from "next/link";
 import { getGigs, createGig, getBookmarkedGigIds, toggleBookmark } from "../featureActions";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
+import { Gig } from "@/lib/types";
+import { GigCardSkeleton } from "@/components/ui/skeleton";
 
 const GIG_TYPES = ["All", "Saved", "Part-time", "Full-time", "Internship", "Freelance", "One-time"];
 
 export default function HustlePage() {
     const { toast } = useToast();
-    const [gigs, setGigs] = useState<any[]>([]);
+    const [gigs, setGigs] = useState<Gig[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [activeFilter, setActiveFilter] = useState("All");
     const [bookmarkedIds, setBookmarkedIds] = useState<string[]>([]);
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [expandedGig, setExpandedGig] = useState<string | null>(null);
 
     // Modal & Form State
     const [showPostModal, setShowPostModal] = useState(false);
@@ -37,6 +40,7 @@ export default function HustlePage() {
         compensation: "",
         deadline: "",
         tags: "",
+        description: "",
         hot: false
     });
 
@@ -90,7 +94,7 @@ export default function HustlePage() {
 
             if (result.success) {
                 setShowPostModal(false);
-                setNewGig({ role: "", company: "", type: "Part-time", compensation: "", deadline: "", tags: "", hot: false });
+                setNewGig({ role: "", company: "", type: "Part-time", compensation: "", deadline: "", tags: "", description: "", hot: false });
                 toast("Opportunity posted successfully!", "success");
                 loadGigs();
             } else {
@@ -105,8 +109,8 @@ export default function HustlePage() {
 
     const filtered = gigs.filter(g => {
         const matchesSearch =
-            g.role.toLowerCase().includes(search.toLowerCase()) ||
-            g.company.toLowerCase().includes(search.toLowerCase()) ||
+            g.title.toLowerCase().includes(search.toLowerCase()) ||
+            g.company?.toLowerCase().includes(search.toLowerCase()) ||
             (g.tags && g.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())));
         if (activeFilter === "Saved") return matchesSearch && bookmarkedIds.includes(g.id);
         const matchesFilter = activeFilter === "All" || g.type === activeFilter;
@@ -186,9 +190,8 @@ export default function HustlePage() {
                     </div>
 
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                            <Briefcase className="w-12 h-12 text-muted-foreground/20" />
-                            <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Synchronizing Opportunities...</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                            {[1, 2, 3, 4].map(i => <GigCardSkeleton key={i} />)}
                         </div>
                     ) : filtered.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
@@ -201,22 +204,22 @@ export default function HustlePage() {
                                         exit={{ opacity: 0, scale: 0.95 }}
                                         transition={{ delay: index * 0.04 }}
                                     >
-                                        <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white/5 shadow-lg hover:shadow-primary/20 transition-all h-full">
-                                            <CardContent className="p-6 md:p-8 space-y-4 md:space-y-6 flex flex-col h-full">
+                                        <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white/5 shadow-lg hover:border-primary/20 transition-all h-full">
+                                            <CardContent className="p-6 md:p-8 space-y-4 md:space-y-5 flex flex-col h-full">
                                                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                                                     <div className="space-y-1 min-w-0 flex-1">
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <Badge className="bg-secondary border-secondary text-muted-foreground font-bold text-[7px] md:text-[8px] px-2 md:px-3 h-5 uppercase tracking-widest">
                                                                 {gig.type}
                                                             </Badge>
-                                                            {gig.hot && (
+                                                            {(gig as any).hot && (
                                                                 <Badge className="bg-primary/20 border-primary/20 text-primary font-bold text-[7px] md:text-[8px] px-2 md:px-3 h-5 uppercase tracking-widest animate-pulse">
                                                                     Hot
                                                                 </Badge>
                                                             )}
                                                         </div>
                                                         <h2 className="text-xl md:text-2xl font-heading font-black text-foreground uppercase tracking-tight leading-none group-hover:text-primary transition-colors break-words">
-                                                            {gig.role}
+                                                            {gig.title}
                                                         </h2>
                                                         <div className="flex items-center gap-2 pt-1 font-bold text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-widest truncate">
                                                             <Building2 className="w-3 h-3" /> {gig.company}
@@ -234,11 +237,18 @@ export default function HustlePage() {
                                                             <Heart className={`w-4 h-4 ${bookmarkedIds.includes(gig.id) ? "fill-current" : ""}`} />
                                                         </button>
                                                         <div className="text-right">
-                                                            <div className="text-lg font-black text-foreground tracking-tight">{gig.compensation}</div>
-                                                            <div className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{gig.deadline}</div>
+                                                            <div className="text-lg font-black text-foreground tracking-tight">{(gig as any).compensation || "TBD"}</div>
+                                                            <div className="text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{(gig as any).deadline || "No Deadline"}</div>
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {gig.description && (
+                                                    <p className={`text-[10px] md:text-xs text-muted-foreground leading-relaxed transition-all ${expandedGig === gig.id ? "" : "line-clamp-2"}`}>
+                                                        {gig.description}
+                                                    </p>
+                                                )}
+
                                                 <div className="flex flex-wrap gap-1.5 md:gap-2 flex-grow">
                                                     {gig.tags?.map((tag: string) => (
                                                         <Badge key={tag} className="text-[7px] md:text-[8px] bg-secondary border-secondary text-secondary-foreground font-bold tracking-widest px-1.5 md:px-2 h-4 md:h-5 uppercase shadow-sm">
@@ -246,14 +256,35 @@ export default function HustlePage() {
                                                         </Badge>
                                                     ))}
                                                 </div>
+
                                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 md:pt-6 border-t border-white/5 gap-4">
                                                     <div className="flex items-center gap-2 font-bold text-muted-foreground text-[8px] md:text-[9px] uppercase tracking-widest">
                                                         <Calendar className="w-3 h-3" />
                                                         Posted {new Date(gig.created_at).toLocaleDateString()}
                                                     </div>
-                                                    <Button size="lg" className="w-full sm:w-auto rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-6 md:px-8 h-10 md:h-12 shadow-lg">
-                                                        View Details <ExternalLink className="w-4 h-4 ml-2" />
-                                                    </Button>
+                                                    <div className="flex gap-2 w-full sm:w-auto">
+                                                        {gig.description && (
+                                                            <Button
+                                                                onClick={() => setExpandedGig(expandedGig === gig.id ? null : gig.id)}
+                                                                variant="outline"
+                                                                className="flex-1 sm:flex-none rounded-xl border-white/10 text-muted-foreground hover:text-foreground font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-4 h-10 md:h-12"
+                                                            >
+                                                                {expandedGig === gig.id ? "Minimize" : "Details"}
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            asChild={!!gig.link}
+                                                            className="flex-2 sm:flex-none rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-6 md:px-8 h-10 md:h-12 shadow-lg"
+                                                        >
+                                                            {gig.link ? (
+                                                                <a href={gig.link} target="_blank" rel="noopener noreferrer">
+                                                                    Apply <ExternalLink className="w-3.5 h-3.5 ml-2" />
+                                                                </a>
+                                                            ) : (
+                                                                <span className="cursor-default">Apply</span>
+                                                            )}
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -307,39 +338,51 @@ export default function HustlePage() {
                                     <h2 className="text-2xl font-bold text-foreground uppercase tracking-tight">Post Opportunity</h2>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Connect with Campus Talent</p>
                                 </div>
-                                <form onSubmit={handleSubmit} className="space-y-6">
-                                    <div className="space-y-4">
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    <div className="space-y-3">
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Role/Title</label>
-                                                <Input required value={newGig.role} onChange={e => setNewGig({ ...newGig, role: e.target.value })} placeholder="E.G. WEB DEVELOPER" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                                <Input required value={newGig.role} onChange={e => setNewGig({ ...newGig, role: e.target.value })} placeholder="E.G. WEB DEVELOPER" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Company/Project</label>
-                                                <Input required value={newGig.company} onChange={e => setNewGig({ ...newGig, company: e.target.value })} placeholder="E.G. TECH SOC" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                                <Input required value={newGig.company} onChange={e => setNewGig({ ...newGig, company: e.target.value })} placeholder="E.G. TECH SOC" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Type</label>
-                                                <select value={newGig.type} onChange={e => setNewGig({ ...newGig, type: e.target.value })} className="w-full rounded-xl border border-white/10 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
+                                                <select value={newGig.type} onChange={e => setNewGig({ ...newGig, type: e.target.value })} className="w-full rounded-xl border border-white/10 h-11 text-[10px] uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
                                                     {["Part-time", "Full-time", "Internship", "Freelance", "One-time"].map(t => <option key={t} className="bg-slate-900 text-foreground">{t}</option>)}
                                                 </select>
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Compensation</label>
-                                                <Input required value={newGig.compensation} onChange={e => setNewGig({ ...newGig, compensation: e.target.value })} placeholder="E.G. $20/HR" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                                <Input required value={newGig.compensation} onChange={e => setNewGig({ ...newGig, compensation: e.target.value })} placeholder="E.G. $20/HR" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-1.5">
+                                                <Info className="w-2.5 h-2.5" /> Gig Description
+                                            </label>
+                                            <textarea
+                                                required
+                                                value={newGig.description}
+                                                onChange={e => setNewGig({ ...newGig, description: e.target.value })}
+                                                placeholder="Describe the role, requirements, and responsibilities..."
+                                                className="w-full rounded-xl border border-white/10 bg-secondary/50 p-4 text-[10px] font-medium tracking-wide text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/50 outline-none h-24 resize-none transition-all"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Deadline</label>
-                                            <Input required value={newGig.deadline} onChange={e => setNewGig({ ...newGig, deadline: e.target.value })} placeholder="E.G. FEB 28, 2026" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                            <Input required value={newGig.deadline} onChange={e => setNewGig({ ...newGig, deadline: e.target.value })} placeholder="E.G. FEB 28, 2026" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Tags (comma separated)</label>
-                                            <Input value={newGig.tags} onChange={e => setNewGig({ ...newGig, tags: e.target.value })} placeholder="E.G. REACT, REMOTE" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                            <Input value={newGig.tags} onChange={e => setNewGig({ ...newGig, tags: e.target.value })} placeholder="E.G. REACT, REMOTE" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                         </div>
-                                        <div className="flex items-center gap-3 pt-2">
+                                        <div className="flex items-center gap-3 pt-1">
                                             <input type="checkbox" id="hot-gig" checked={newGig.hot} onChange={e => setNewGig({ ...newGig, hot: e.target.checked })} className="w-5 h-5 rounded border-white/10 bg-secondary/50 text-primary focus:ring-primary cursor-pointer" />
                                             <label htmlFor="hot-gig" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer">Mark as "Hot" (Urgent)</label>
                                         </div>

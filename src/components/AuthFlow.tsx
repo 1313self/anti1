@@ -10,25 +10,78 @@ import { Loader2, Mail, Lock, LogIn, UserPlus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
-import { signUpUser } from "@/app/auth/actions";
+import { signUpUser, confirmUserAccount } from "@/app/auth/actions";
 
 export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showConfirmBypass, setShowConfirmBypass] = useState(false);
+    const [activating, setActivating] = useState(false);
     const router = useRouter();
+
+    const getPasswordStrength = (pass: string) => {
+        if (!pass) return 0;
+        let score = 0;
+        if (pass.length >= 8) score += 25;
+        if (/[A-Z]/.test(pass)) score += 25;
+        if (/[0-9]/.test(pass)) score += 25;
+        if (/[^A-Za-z0-9]/.test(pass)) score += 25;
+        return score;
+    };
+
+    const strength = getPasswordStrength(password);
+    const strengthColor = strength <= 25 ? "bg-red-500" : strength <= 50 ? "bg-amber-500" : strength <= 75 ? "bg-blue-500" : "bg-emerald-500";
+    const strengthLabel = strength <= 25 ? "Weak" : strength <= 50 ? "Fair" : strength <= 75 ? "Strong" : "Secure";
+
+    const handleConfirmBypass = async () => {
+        setActivating(true);
+        const result = await confirmUserAccount(email);
+        if (result.success) {
+            // After activation, try to sign in again automatically
+            const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+            if (signInError) {
+                setError("Activation Success: Please use your credentials to login now.");
+                setShowConfirmBypass(false);
+            } else {
+                router.push("/dashboard");
+            }
+        } else {
+            setError(result.error || "Activation Protocol Failed.");
+        }
+        setActivating(false);
+    };
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
+        setShowConfirmBypass(false);
+
+        if (mode === 'signup' && password !== confirmPassword) {
+            setError("Password Mismatch: Data streams do not align.");
+            setLoading(false);
+            return;
+        }
+
+        if (mode === 'signup' && strength < 50) {
+            setError("Security Breach: Password strength does not meet minimum protocol.");
+            setLoading(false);
+            return;
+        }
 
         if (mode === 'login') {
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) {
                 console.error("Auth error:", error);
-                setError(error.message);
+                if (error.message.toLowerCase().includes("email not confirmed")) {
+                    setShowConfirmBypass(true);
+                    setError("Identity Unverified: Your account activation is pending.");
+                } else {
+                    setError(error.message);
+                }
             } else {
                 router.push("/dashboard");
             }
@@ -78,9 +131,9 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                         </div>
                     </CardHeader>
                     <CardContent className="px-10 pb-10">
-                        <form onSubmit={handleAuth} className="space-y-8">
-                            <div className="space-y-3">
-                                <Label className="text-muted-foreground uppercase font-bold text-[10px] tracking-widest">Email Address</Label>
+                        <form onSubmit={handleAuth} className="space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-muted-foreground uppercase font-bold text-[9px] tracking-widest px-1">Email Address</Label>
                                 <div className="relative group">
                                     <Mail className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within:text-primary transition-colors" />
                                     <Input
@@ -93,8 +146,20 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-3">
-                                <Label className="text-muted-foreground uppercase font-bold text-[10px] tracking-widest">Password</Label>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-end">
+                                    <Label className="text-muted-foreground uppercase font-bold text-[9px] tracking-widest px-1">Password</Label>
+                                    {mode === 'login' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => router.push("/forgot-password")}
+                                            className="text-[9px] font-bold uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
+                                        >
+                                            Forgot?
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="relative group">
                                     <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within:text-primary transition-colors" />
                                     <Input
@@ -106,16 +171,61 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
                                         required
                                     />
                                 </div>
+                                {mode === 'signup' && password.length > 0 && (
+                                    <div className="space-y-2 pt-1">
+                                        <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-widest">
+                                            <span className="text-muted-foreground">Strength: <span className={strengthColor.replace('bg-', 'text-')}>{strengthLabel}</span></span>
+                                            <span className="text-muted-foreground">{strength}%</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${strength}%` }}
+                                                className={`h-full ${strengthColor}`}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
+                            {mode === 'signup' && (
+                                <div className="space-y-2">
+                                    <Label className="text-muted-foreground uppercase font-bold text-[9px] tracking-widest px-1">Confirm Identity</Label>
+                                    <div className="relative group">
+                                        <Lock className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 group-focus-within:text-primary transition-colors" />
+                                        <Input
+                                            type="password"
+                                            placeholder="••••••••"
+                                            className="input-glow-bottom pl-6 h-12 uppercase text-xs font-bold tracking-widest text-foreground placeholder:text-muted-foreground/30 border-b border-white/10 focus-visible:border-primary bg-transparent"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             {error && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold uppercase tracking-widest text-center"
-                                >
-                                    System Alert: {error}
-                                </motion.div>
+                                <div className="space-y-4">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-bold uppercase tracking-widest text-center"
+                                    >
+                                        Alert: {error}
+                                    </motion.div>
+
+                                    {showConfirmBypass && (
+                                        <Button
+                                            type="button"
+                                            onClick={handleConfirmBypass}
+                                            disabled={activating}
+                                            className="w-full h-12 rounded-xl bg-secondary text-foreground font-black uppercase text-[10px] tracking-widest hover:bg-secondary/80 border border-white/5 transition-all shadow-lg active:scale-95"
+                                        >
+                                            {activating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Request Fast Activation"}
+                                        </Button>
+                                    )}
+                                </div>
                             )}
 
                             <Button

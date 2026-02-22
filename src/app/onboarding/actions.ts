@@ -9,6 +9,7 @@ export async function createProfile(formData: {
     fullName: string;
     academicAim: string;
     hobbies: string;
+    skills?: string;
     studyWindow: string;
     peakHours: 'morning' | 'night' | 'neutral';
     bio: string;
@@ -26,8 +27,9 @@ export async function createProfile(formData: {
         const fullNameClean = formData.fullName.trim();
         if (!fullNameClean) throw new Error("Full name protocol failed: Name cannot be empty.");
 
-        // 2. Format hobbies as array
+        // 2. Format tag arrays
         const hobbiesArray = formData.hobbies.split(",").map(h => h.trim()).filter(h => h !== "");
+        const skillsArray = formData.skills ? formData.skills.split(",").map(s => s.trim()).filter(s => s !== "") : [];
 
         // 3. Upsert profile in Supabase using Admin client
         const { error } = await supabaseAdmin
@@ -37,6 +39,7 @@ export async function createProfile(formData: {
                 full_name: formData.fullName,
                 academic_aim: formData.academicAim,
                 hobbies: hobbiesArray,
+                skills: skillsArray,
                 study_window: formData.studyWindow,
                 peak_hours: formData.peakHours === 'neutral' ? null : formData.peakHours,
                 bio: formData.bio,
@@ -63,6 +66,7 @@ export async function updateProfile(formData: {
     fullName: string;
     academicAim: string;
     hobbies: string;
+    skills?: string;
     bio: string;
     studyWindow: string;
     instagram?: string;
@@ -75,6 +79,7 @@ export async function updateProfile(formData: {
                 full_name: formData.fullName,
                 academic_aim: formData.academicAim,
                 hobbies: formData.hobbies.split(",").map(h => h.trim()).filter(h => h !== ""),
+                skills: formData.skills ? formData.skills.split(",").map(s => s.trim()).filter(s => s !== "") : [],
                 bio: formData.bio,
                 study_window: formData.studyWindow,
                 instagram: formData.instagram || null,
@@ -85,6 +90,7 @@ export async function updateProfile(formData: {
 
         if (error) throw error;
         revalidatePath("/dashboard/profile");
+        revalidatePath("/dashboard/discovery");
         return { success: true };
     } catch (error) {
         console.error("Error updating profile:", error);

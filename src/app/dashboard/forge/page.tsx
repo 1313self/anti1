@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Terminal, Plus, Users as UsersIcon,
     ArrowLeft, Rocket, Code, Lightbulb, Target,
-    Sparkles, X, Send
+    Sparkles, X, Send, Search, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import Link from "next/link";
 import { getProjects, createProject, getMyForgeRequests, requestToJoin } from "../featureActions";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
+import { Project } from "@/lib/types";
+import { ProjectCardSkeleton } from "@/components/ui/skeleton";
 
 type ProjectStatus = "Ideation" | "Development" | "Prototyping" | "Launched";
 
@@ -25,10 +27,14 @@ const STATUS_STYLES: Record<string, string> = {
     Launched: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
 };
 
+const PROJECT_TYPES = ["All", "Software", "Hardware", "Business", "Research", "Social"];
+
 export default function ForgePage() {
     const { toast } = useToast();
-    const [projects, setProjects] = useState<any[]>([]);
+    const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState("");
+    const [activeType, setActiveType] = useState("All");
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [myRequests, setMyRequests] = useState<{ project_id: string; status: string }[]>([]);
 
@@ -38,7 +44,7 @@ export default function ForgePage() {
     const [newProject, setNewProject] = useState({ name: "", vision: "", type: "Software", needs: "", status: "Ideation" });
 
     // Join request modal
-    const [joinTarget, setJoinTarget] = useState<any>(null);
+    const [joinTarget, setJoinTarget] = useState<Project | null>(null);
     const [joinMessage, setJoinMessage] = useState("");
     const [joining, setJoining] = useState(false);
 
@@ -105,6 +111,14 @@ export default function ForgePage() {
         setJoining(false);
     };
 
+    const filtered = projects.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+            p.description?.toLowerCase().includes(search.toLowerCase()) ||
+            (p.tags && p.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())));
+        const matchesType = activeType === "All" || p.type === activeType;
+        return matchesSearch && matchesType;
+    });
+
     return (
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/[0.03] blur-[120px] rounded-full" />
@@ -130,24 +144,50 @@ export default function ForgePage() {
                         </div>
                     </div>
 
-                    <Button
-                        onClick={() => setShowInitiateModal(true)}
-                        className="w-full lg:w-auto bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 md:px-10 h-14 md:h-16 font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95"
-                    >
-                        <Plus className="w-3 h-3 md:w-4 md:h-4 mr-2" />
-                        Initiate Project
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-4 items-center">
+                        <div className="flex glass p-1.5 md:p-2 rounded-xl md:rounded-2xl w-full lg:w-80 shadow-lg shadow-black/5">
+                            <Search className="w-4 h-4 text-muted-foreground ml-3 mr-2 my-auto" />
+                            <Input
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search projects..."
+                                className="border-none bg-transparent shadow-none focus-visible:ring-0 uppercase font-black text-[9px] md:text-[10px] tracking-widest text-foreground placeholder:text-muted-foreground/50 h-9 md:h-10"
+                            />
+                        </div>
+                        <Button
+                            onClick={() => setShowInitiateModal(true)}
+                            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white rounded-2xl px-8 h-12 md:h-14 font-black uppercase text-[10px] md:text-xs tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95"
+                        >
+                            <Plus className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                            Initiate
+                        </Button>
+                    </div>
                 </header>
 
+                {/* Filters */}
+                <div className="flex flex-wrap gap-2 border-b border-white/5 pb-6">
+                    {PROJECT_TYPES.map(type => (
+                        <button
+                            key={type}
+                            onClick={() => setActiveType(type)}
+                            className={`px-4 py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${activeType === type
+                                ? "bg-secondary text-foreground shadow-lg"
+                                : "text-muted-foreground hover:bg-white/5"
+                                }`}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                        <Terminal className="w-12 h-12 text-muted-foreground/20" />
-                        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Firing Up Furnaces...</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                        {[1, 2, 3].map(i => <ProjectCardSkeleton key={i} />)}
                     </div>
-                ) : projects.length > 0 ? (
+                ) : filtered.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                         <AnimatePresence mode="popLayout">
-                            {projects.map((project, index) => {
+                            {filtered.map((project, index) => {
                                 const requestStatus = getRequestStatus(project.id);
                                 const isOwn = currentUser?.id === project.lead_id;
 
@@ -160,7 +200,7 @@ export default function ForgePage() {
                                         transition={{ delay: index * 0.05 }}
                                         className="h-full"
                                     >
-                                        <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white/5 shadow-lg h-full flex flex-col">
+                                        <Card className="glass-card rounded-[2rem] md:rounded-[2.5rem] overflow-hidden group border-white/5 shadow-lg h-full flex flex-col hover:border-primary/20 transition-all">
                                             <div className="p-6 md:p-8 space-y-4 md:space-y-6 flex-1">
                                                 <div className="flex justify-between items-start">
                                                     <div className={`p-2.5 md:p-3 rounded-xl md:rounded-2xl ${project.type === 'Software' ? 'bg-indigo-500/10 text-indigo-400' : project.type === 'Business' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
@@ -175,17 +215,20 @@ export default function ForgePage() {
                                                     <h2 className="text-xl md:text-2xl font-black text-foreground uppercase tracking-tight leading-none group-hover:text-primary transition-colors truncate">
                                                         {project.name}
                                                     </h2>
-                                                    <p className="text-muted-foreground font-bold text-[9px] md:text-[10px] uppercase tracking-widest truncate">Project Lead</p>
+                                                    <div className="flex items-center gap-1.5 font-bold text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-widest truncate">
+                                                        <User className="w-3 h-3 text-primary" />
+                                                        <span>Lead: <span className="text-foreground">{project.lead_name || "Nexus System"}</span></span>
+                                                    </div>
                                                 </div>
 
-                                                <p className="text-[11px] md:text-xs text-muted-foreground leading-relaxed font-bold italic border-l-2 border-border pl-4 line-clamp-2 md:line-clamp-none">
-                                                    &ldquo;{project.vision}&rdquo;
+                                                <p className="text-[11px] md:text-xs text-muted-foreground leading-relaxed font-bold italic border-l-2 border-border pl-4 line-clamp-3">
+                                                    &ldquo;{project.description}&rdquo;
                                                 </p>
 
                                                 <div className="space-y-2 md:space-y-3">
                                                     <span className="text-[8px] md:text-[9px] font-black uppercase text-muted-foreground/50 tracking-[0.2em]">Seeking Talent:</span>
                                                     <div className="flex flex-wrap gap-1.5 md:gap-2">
-                                                        {project.needs?.map((skill: string) => (
+                                                        {project.tags?.map((skill: string) => (
                                                             <Badge key={skill} className="text-[7px] md:text-[8px] bg-secondary border-secondary text-muted-foreground font-black tracking-widest px-1.5 md:px-2 h-4 md:h-5 uppercase shadow-sm">
                                                                 {skill}
                                                             </Badge>
@@ -198,13 +241,13 @@ export default function ForgePage() {
                                                 <div className="flex items-center justify-between pt-4 md:pt-6 border-t border-white/5 gap-2">
                                                     <div className="flex items-center gap-2">
                                                         <div className="flex -space-x-1.5 md:-space-x-2">
-                                                            {[...Array(Math.min(3, project.members_count || 1))].map((_, i) => (
+                                                            {[...Array(Math.min(3, project.team_size || 1))].map((_, i) => (
                                                                 <div key={i} className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-background bg-secondary flex items-center justify-center text-[7px] md:text-[8px] font-black text-muted-foreground">
                                                                     {String.fromCharCode(65 + i)}
                                                                 </div>
                                                             ))}
                                                         </div>
-                                                        <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">+{project.members_count || 1} Team</span>
+                                                        <span className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">+{project.team_size || 1} Team</span>
                                                     </div>
 
                                                     {isOwn ? (
@@ -236,7 +279,7 @@ export default function ForgePage() {
                         </div>
                         <div className="space-y-3">
                             <h3 className="text-2xl font-black text-foreground uppercase tracking-tighter">Forge Is Cold</h3>
-                            <p className="text-muted-foreground font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No active innovation projects found. Great ventures start with a single initialization.</p>
+                            <p className="text-muted-foreground font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No active innovation projects found matching your search. Ignite the network with a new initiative.</p>
                         </div>
                         <Button onClick={() => setShowInitiateModal(true)} className="bg-primary hover:bg-primary/90 text-white font-black uppercase text-[10px] tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all hover:scale-105">
                             <Plus className="w-4 h-4 mr-2" />
@@ -258,33 +301,33 @@ export default function ForgePage() {
                                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Start your journey in the Forge</p>
                                 </div>
 
-                                <form onSubmit={handleInitiate} className="space-y-6">
+                                <form onSubmit={handleInitiate} className="space-y-5">
                                     <div className="space-y-4">
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Project Name</label>
-                                            <Input required value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} placeholder="E.G. AI STUDY BUDDY" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                            <Input required value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} placeholder="E.G. AI STUDY BUDDY" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vision / Description</label>
-                                            <textarea required value={newProject.vision} onChange={e => setNewProject({ ...newProject, vision: e.target.value })} placeholder="DESCRIBE YOUR VISION..." className="w-full rounded-xl border border-white/10 p-4 text-xs font-bold tracking-widest outline-none bg-secondary/50 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/50 transition-all min-h-[100px] resize-none" />
+                                            <textarea required value={newProject.vision} onChange={e => setNewProject({ ...newProject, vision: e.target.value })} placeholder="DESCRIBE YOUR VISION..." className="w-full rounded-xl border border-white/10 p-4 text-[10px] font-bold tracking-widest outline-none bg-secondary/50 text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/50 transition-all min-h-[100px] resize-none" />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Type</label>
-                                                <select value={newProject.type} onChange={e => setNewProject({ ...newProject, type: e.target.value })} className="w-full rounded-xl border border-white/10 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
-                                                    <option>Software</option><option>Hardware</option><option>Business</option><option>Research</option><option>Social</option>
+                                                <select value={newProject.type} onChange={e => setNewProject({ ...newProject, type: e.target.value })} className="w-full rounded-xl border border-white/10 h-11 text-[10px] uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
+                                                    {PROJECT_TYPES.filter(t => t !== "All").map(t => <option key={t}>{t}</option>)}
                                                 </select>
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Status</label>
-                                                <select value={newProject.status} onChange={e => setNewProject({ ...newProject, status: e.target.value })} className="w-full rounded-xl border border-white/10 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
+                                                <select value={newProject.status} onChange={e => setNewProject({ ...newProject, status: e.target.value })} className="w-full rounded-xl border border-white/10 h-11 text-[10px] uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer">
                                                     <option>Ideation</option><option>Development</option><option>Prototyping</option><option>Launched</option>
                                                 </select>
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground ml-1">Seeking Talent (Skills needed)</label>
-                                            <Input value={newProject.needs} onChange={e => setNewProject({ ...newProject, needs: e.target.value })} placeholder="E.G. REACT, MARKETING, UI/UX" className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
+                                            <Input value={newProject.needs} onChange={e => setNewProject({ ...newProject, needs: e.target.value })} placeholder="E.G. REACT, MARKETING, UI/UX" className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary" />
                                         </div>
                                     </div>
                                     <div className="flex gap-4 pt-4">
@@ -322,7 +365,7 @@ export default function ForgePage() {
                                         value={joinMessage}
                                         onChange={e => setJoinMessage(e.target.value)}
                                         placeholder="Briefly introduce yourself and what you bring to the project..."
-                                        className="w-full rounded-xl border border-white/10 bg-secondary/50 p-4 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[100px] resize-none"
+                                        className="w-full rounded-xl border border-white/10 bg-secondary/50 p-4 text-[10px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-2 focus:ring-primary/50 transition-all min-h-[100px] resize-none"
                                         maxLength={400}
                                     />
                                 </div>

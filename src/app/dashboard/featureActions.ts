@@ -3,6 +3,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
+import type { Resource, Gig, Project } from "@/lib/types";
 
 // Client for auth-context operations (uses anon key + RLS)
 function getAnonClient() {
@@ -14,7 +15,7 @@ function getAnonClient() {
 
 // --- Resources (Library) ---
 
-export async function getResources() {
+export async function getResources(): Promise<{ success: boolean; resources?: Resource[]; error?: string }> {
     try {
         const { data, error } = await supabaseAdmin
             .from('resources')
@@ -22,7 +23,7 @@ export async function getResources() {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return { success: true, resources: data };
+        return { success: true, resources: data as Resource[] };
     } catch (error) {
         console.error("Error fetching resources:", error);
         return { success: false, error: (error as Error).message };
@@ -35,8 +36,9 @@ export async function createResource(data: {
     author_name: string;
     university: string;
     tags: string[];
+    file_url?: string;
     user_id: string;
-}) {
+}): Promise<{ success: boolean; error?: string }> {
     try {
         const { user_id, ...rest } = data;
         const { error } = await supabaseAdmin
@@ -52,9 +54,42 @@ export async function createResource(data: {
     }
 }
 
+// --- Library Bookmarks ---
+
+export async function getLibraryBookmarkIds(userId: string): Promise<string[]> {
+    const { data } = await supabaseAdmin
+        .from("library_bookmarks")
+        .select("resource_id")
+        .eq("user_id", userId);
+    return data?.map((r: { resource_id: string }) => r.resource_id) ?? [];
+}
+
+export async function toggleLibraryBookmark(
+    userId: string,
+    resourceId: string,
+    isBookmarked: boolean
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        if (isBookmarked) {
+            await supabaseAdmin
+                .from("library_bookmarks")
+                .delete()
+                .eq("user_id", userId)
+                .eq("resource_id", resourceId);
+        } else {
+            await supabaseAdmin
+                .from("library_bookmarks")
+                .insert([{ user_id: userId, resource_id: resourceId }]);
+        }
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
 // --- Gigs (Hustle) ---
 
-export async function getGigs() {
+export async function getGigs(): Promise<{ success: boolean; gigs?: Gig[]; error?: string }> {
     try {
         const { data, error } = await supabaseAdmin
             .from('gigs')
@@ -62,7 +97,7 @@ export async function getGigs() {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return { success: true, gigs: data };
+        return { success: true, gigs: data as Gig[] };
     } catch (error) {
         console.error("Error fetching gigs:", error);
         return { success: false, error: (error as Error).message };
@@ -75,10 +110,11 @@ export async function createGig(data: {
     type: string;
     compensation: string;
     deadline: string;
+    description?: string;
     tags: string[];
     user_id: string;
     hot?: boolean;
-}) {
+}): Promise<{ success: boolean; error?: string }> {
     try {
         const { user_id, ...rest } = data;
         const { error } = await supabaseAdmin
@@ -96,15 +132,23 @@ export async function createGig(data: {
 
 // --- Projects (Forge) ---
 
-export async function getProjects() {
+export async function getProjects(): Promise<{ success: boolean; projects?: Project[]; error?: string }> {
     try {
         const { data, error } = await supabaseAdmin
             .from('projects')
-            .select('*')
+            .select('*, profiles!lead_id(full_name)')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return { success: true, projects: data };
+
+        // Flatten lead name from joined profile
+        const projects = (data ?? []).map((p: Project & { profiles?: { full_name: string } | null }) => ({
+            ...p,
+            lead_name: p.profiles?.full_name ?? "Unknown",
+            profiles: undefined,
+        })) as Project[];
+
+        return { success: true, projects };
     } catch (error) {
         console.error("Error fetching projects:", error);
         return { success: false, error: (error as Error).message };
@@ -118,7 +162,7 @@ export async function createProject(data: {
     needs: string[];
     user_id: string;
     status?: string;
-}) {
+}): Promise<{ success: boolean; error?: string }> {
     try {
         const { user_id, ...rest } = data;
         const { error } = await supabaseAdmin
@@ -141,10 +185,14 @@ export async function getBookmarkedGigIds(userId: string): Promise<string[]> {
         .from("hustle_bookmarks")
         .select("gig_id")
         .eq("user_id", userId);
-    return data?.map((r: any) => r.gig_id) ?? [];
+    return data?.map((r: { gig_id: string }) => r.gig_id) ?? [];
 }
 
-export async function toggleBookmark(userId: string, gigId: string, isBookmarked: boolean) {
+export async function toggleBookmark(
+    userId: string,
+    gigId: string,
+    isBookmarked: boolean
+): Promise<{ success: boolean; error?: string }> {
     try {
         if (isBookmarked) {
             await supabaseAdmin
@@ -173,7 +221,11 @@ export async function getMyForgeRequests(userId: string): Promise<{ project_id: 
     return data ?? [];
 }
 
-export async function requestToJoin(userId: string, projectId: string, message: string) {
+export async function requestToJoin(
+    userId: string,
+    projectId: string,
+    message: string
+): Promise<{ success: boolean; error?: string }> {
     try {
         const { error } = await supabaseAdmin
             .from("forge_requests")
@@ -187,7 +239,10 @@ export async function requestToJoin(userId: string, projectId: string, message: 
 
 // --- Profile Skills ---
 
-export async function updateSkills(userId: string, skills: string[]) {
+export async function updateSkills(
+    userId: string,
+    skills: string[]
+): Promise<{ success: boolean; error?: string }> {
     try {
         const { error } = await supabaseAdmin
             .from("profiles")
@@ -204,16 +259,18 @@ export async function updateSkills(userId: string, skills: string[]) {
 
 export async function getDashboardStats(userId: string) {
     try {
-        const [bookmarks, messages] = await Promise.all([
+        const [bookmarks, messages, projectsJoined] = await Promise.all([
             supabaseAdmin.from("hustle_bookmarks").select("id", { count: "exact", head: true }).eq("user_id", userId),
             supabaseAdmin.from("lounge_messages").select("id", { count: "exact", head: true }).eq("user_id", userId),
+            supabaseAdmin.from("forge_requests").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "accepted"),
         ]);
         return {
             success: true,
             savedCount: bookmarks.count ?? 0,
             messageCount: messages.count ?? 0,
+            projectsJoined: projectsJoined.count ?? 0,
         };
     } catch {
-        return { success: false, savedCount: 0, messageCount: 0 };
+        return { success: false, savedCount: 0, messageCount: 0, projectsJoined: 0 };
     }
 }

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { LoungeMessageSkeleton } from "@/components/ui/skeleton";
 
 interface Message {
     id: string;
@@ -50,7 +51,7 @@ export default function LoungePage() {
     const [displayName, setDisplayName] = useState("Anonymous");
     const [activeChannel, setActiveChannel] = useState("general");
     const [error, setError] = useState<string | null>(null);
-    const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+    const [showPickerId, setShowPickerId] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -173,6 +174,7 @@ export default function LoungePage() {
         } else {
             await supabase.from("lounge_reactions").insert({ message_id: messageId, user_id: currentUser.id, emoji });
         }
+        setShowPickerId(null);
     };
 
     const getReactionCounts = (messageId: string) => {
@@ -210,9 +212,9 @@ export default function LoungePage() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 self-start md:self-auto">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 self-start md:self-auto">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Realtime Active</span>
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Realtime Active</span>
                     </div>
                 </header>
 
@@ -223,7 +225,7 @@ export default function LoungePage() {
                             key={ch.id}
                             onClick={() => setActiveChannel(ch.id)}
                             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeChannel === ch.id
-                                ? "bg-primary text-white shadow-md"
+                                ? "bg-primary text-primary-foreground shadow-md"
                                 : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                                 }`}
                         >
@@ -234,12 +236,11 @@ export default function LoungePage() {
                 </div>
 
                 {/* Message Feed */}
-                <div className="flex-1 glass-card rounded-[2rem] flex flex-col overflow-hidden min-h-[420px] max-h-[520px]">
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3 no-scrollbar">
+                <div className="flex-1 glass-card rounded-[2rem] flex flex-col overflow-hidden min-h-[420px] max-h-[600px] border-border shadow-2xl">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar">
                         {loading ? (
-                            <div className="flex flex-col items-center justify-center h-full gap-3 py-12">
-                                <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tuning in...</p>
+                            <div className="space-y-4">
+                                {[1, 2, 3, 4, 5].map(i => <LoungeMessageSkeleton key={i} isOwn={i % 2 === 0} />)}
                             </div>
                         ) : error ? (
                             <div className="flex flex-col items-center justify-center h-full gap-3 py-12 text-center">
@@ -266,40 +267,38 @@ export default function LoungePage() {
                                     return (
                                         <motion.div
                                             key={msg.id}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
+                                            initial={{ opacity: 0, scale: 0.98, y: 5 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.95 }}
                                             transition={{ duration: 0.2 }}
-                                            className={`flex gap-3 group ${isOwn ? "flex-row-reverse" : ""}`}
-                                            onMouseEnter={() => setHoveredMsgId(msg.id)}
-                                            onMouseLeave={() => setHoveredMsgId(null)}
+                                            className={`flex gap-3 group relative ${isOwn ? "flex-row-reverse" : ""}`}
                                         >
-                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${isOwn ? "bg-primary text-white" : "bg-secondary text-muted-foreground"}`}>
+                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${isOwn ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground"}`}>
                                                 {msg.display_name?.[0]?.toUpperCase() || "?"}
                                             </div>
-                                            <div className={`max-w-[70%] space-y-1 ${isOwn ? "items-end" : ""} flex flex-col`}>
+                                            <div className={`max-w-[80%] space-y-1 ${isOwn ? "items-end text-right" : "items-start text-left"} flex flex-col`}>
                                                 <div className={`flex items-center gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
                                                     <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{isOwn ? "You" : msg.display_name}</span>
                                                     <span className="text-[8px] text-muted-foreground/60">{formatTime(msg.created_at)}</span>
                                                     {isOwn && (
-                                                        <button onClick={() => handleDelete(msg.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500">
+                                                        <button onClick={() => handleDelete(msg.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500 p-1">
                                                             <Trash2 className="w-3 h-3" />
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium leading-snug break-words ${isOwn ? "bg-primary text-white rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm"}`}>
+                                                <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium leading-snug break-words shadow-sm transition-all group-hover:shadow-md ${isOwn ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm hover:bg-secondary/80"}`}>
                                                     {msg.content}
                                                 </div>
 
                                                 {/* Reactions row */}
-                                                <div className={`flex items-center gap-1 flex-wrap ${isOwn ? "justify-end" : ""}`}>
+                                                <div className={`flex items-center gap-1 flex-wrap pt-0.5 ${isOwn ? "justify-end" : ""}`}>
                                                     {hasReactions && Object.entries(reactionCounts).map(([emoji, count]) => (
                                                         <button
                                                             key={emoji}
                                                             onClick={() => handleReaction(msg.id, emoji)}
                                                             className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all border ${hasMyReaction(msg.id, emoji)
-                                                                ? "bg-primary/10 border-primary/30 text-primary"
-                                                                : "bg-secondary/60 border-transparent text-muted-foreground hover:bg-secondary"
+                                                                ? "bg-primary/20 border-primary/40 text-primary shadow-sm"
+                                                                : "bg-secondary/60 border-transparent text-muted-foreground hover:bg-secondary hover:border-border"
                                                                 }`}
                                                         >
                                                             <span>{emoji}</span>
@@ -307,24 +306,40 @@ export default function LoungePage() {
                                                         </button>
                                                     ))}
 
-                                                    {/* Emoji picker — show on hover */}
-                                                    {hoveredMsgId === msg.id && currentUser && (
-                                                        <motion.div
-                                                            initial={{ opacity: 0, scale: 0.8 }}
-                                                            animate={{ opacity: 1, scale: 1 }}
-                                                            className="flex items-center gap-0.5 bg-card border border-border rounded-full px-2 py-0.5 shadow-lg"
+                                                    {/* Emoji toggle button for mobile/hover */}
+                                                    {currentUser && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setShowPickerId(showPickerId === msg.id ? null : msg.id);
+                                                            }}
+                                                            className={`p-1 rounded-full text-muted-foreground hover:text-primary transition-all ${showPickerId === msg.id ? "bg-secondary opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                                                         >
-                                                            {EMOJI_OPTIONS.map(e => (
-                                                                <button
-                                                                    key={e}
-                                                                    onClick={() => handleReaction(msg.id, e)}
-                                                                    className={`text-sm hover:scale-125 transition-transform px-0.5 ${hasMyReaction(msg.id, e) ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
-                                                                >
-                                                                    {e}
-                                                                </button>
-                                                            ))}
-                                                        </motion.div>
+                                                            <Smile className="w-3.5 h-3.5" />
+                                                        </button>
                                                     )}
+
+                                                    {/* Emoji picker */}
+                                                    <AnimatePresence>
+                                                        {showPickerId === msg.id && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: 5, scale: 0.9 }}
+                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                exit={{ opacity: 0, y: 5, scale: 0.9 }}
+                                                                className="absolute bottom-full mb-2 z-50 flex items-center gap-1 bg-card border border-border rounded-2xl px-3 py-1.5 shadow-2xl"
+                                                            >
+                                                                {EMOJI_OPTIONS.map(e => (
+                                                                    <button
+                                                                        key={e}
+                                                                        onClick={() => handleReaction(msg.id, e)}
+                                                                        className={`text-lg hover:scale-135 transition-transform px-1 active:scale-95 ${hasMyReaction(msg.id, e) ? "opacity-100 bg-primary/10 rounded-lg" : "opacity-70 hover:opacity-100"}`}
+                                                                    >
+                                                                        {e}
+                                                                    </button>
+                                                                ))}
+                                                            </motion.div>
+                                                        )}
+                                                    </AnimatePresence>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -336,27 +351,32 @@ export default function LoungePage() {
                     </div>
 
                     {/* Input Bar */}
-                    <div className="border-t border-border p-3 md:p-4">
+                    <div className="border-t border-border p-4 bg-card/30">
                         <form onSubmit={handleSend} className="flex gap-2">
-                            <Input
-                                ref={inputRef}
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                placeholder={`Message ${CHANNELS.find(c => c.id === activeChannel)?.label}...`}
-                                maxLength={500}
-                                disabled={!currentUser || sending}
-                                className="flex-1 rounded-xl bg-secondary/50 border-border h-11 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
-                            />
+                            <div className="flex-1 relative">
+                                <Input
+                                    ref={inputRef}
+                                    value={input}
+                                    onChange={e => setInput(e.target.value)}
+                                    placeholder={`Message ${CHANNELS.find(c => c.id === activeChannel)?.label}...`}
+                                    maxLength={500}
+                                    disabled={!currentUser || sending}
+                                    className="w-full rounded-xl bg-secondary/50 border-border h-12 text-sm font-medium text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary shadow-sm pr-12"
+                                />
+                                <span className={`absolute right-3 bottom-3 text-[9px] font-bold uppercase tracking-widest ${input.length >= 450 ? "text-rose-500" : "text-muted-foreground/40"}`}>
+                                    {input.length}/500
+                                </span>
+                            </div>
                             <Button
                                 type="submit"
                                 disabled={!input.trim() || !currentUser || sending}
-                                className="rounded-xl bg-primary hover:bg-primary/90 text-white h-11 px-4 shadow-md transition-all hover:scale-105 disabled:opacity-50 disabled:scale-100"
+                                className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground h-12 w-12 p-0 shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shrink-0"
                             >
-                                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                             </Button>
                         </form>
                         {!currentUser && (
-                            <p className="text-center text-[9px] font-bold uppercase tracking-widest text-muted-foreground mt-2">
+                            <p className="text-center text-[9px] font-bold uppercase tracking-widest text-muted-foreground mt-3">
                                 <Link href="/login" className="text-primary hover:underline">Log in</Link> to join the conversation
                             </p>
                         )}

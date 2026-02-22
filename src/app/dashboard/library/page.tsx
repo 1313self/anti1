@@ -4,25 +4,29 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     BookOpen, Search, Download, Bookmark,
-    Share2, Filter, ArrowLeft, Library as LibraryIcon,
-    Sparkles, ExternalLink, FileText, Info
+    ArrowLeft, Library as LibraryIcon,
+    Sparkles, FileText, Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { getResources, createResource } from "../featureActions";
+import { getResources, createResource, getLibraryBookmarkIds, toggleLibraryBookmark } from "../featureActions";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
+import { Resource } from "@/lib/types";
+import { ResourceCardSkeleton } from "@/components/ui/skeleton";
+
+const RESOURCE_TYPES = ["All", "Notes", "Slides", "Ebook", "Exam", "Guide"];
 
 export default function LibraryPage() {
     const { toast } = useToast();
     const [search, setSearch] = useState("");
+    const [selectedType, setSelectedType] = useState("All");
     const [bookmarked, setBookmarked] = useState<string[]>([]);
-    const [resources, setResources] = useState<any[]>([]);
+    const [resources, setResources] = useState<Resource[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isNavigating, setIsNavigating] = useState(false);
 
     // Modal & Form State
     const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -32,14 +36,24 @@ export default function LibraryPage() {
         type: "Notes",
         author_name: "",
         university: "",
-        tags: ""
+        tags: "",
+        file_url: ""
     });
 
     const loadResources = async () => {
         setLoading(true);
-        const result = await getResources();
-        if (result.success) {
-            setResources(result.resources || []);
+        const [resResult, { data: { user } }] = await Promise.all([
+            getResources(),
+            supabase.auth.getUser()
+        ]);
+
+        if (resResult.success) {
+            setResources(resResult.resources || []);
+        }
+
+        if (user) {
+            const bookmarkIds = await getLibraryBookmarkIds(user.id);
+            setBookmarked(bookmarkIds);
         }
         setLoading(false);
     };
@@ -66,7 +80,7 @@ export default function LibraryPage() {
 
             if (result.success) {
                 setShowSubmitModal(false);
-                setNewResource({ title: "", type: "Notes", author_name: "", university: "", tags: "" });
+                setNewResource({ title: "", type: "Notes", author_name: "", university: "", tags: "", file_url: "" });
                 toast("Resource submitted successfully!", "success");
                 loadResources();
             } else {
@@ -79,16 +93,32 @@ export default function LibraryPage() {
         }
     };
 
-    const filtered = resources.filter(r =>
-        r.title.toLowerCase().includes(search.toLowerCase()) ||
-        (r.tags && r.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())))
-    );
+    const handleToggleBookmark = async (id: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            toast("Please log in to bookmark resources.", "error");
+            return;
+        }
 
-    const toggleBookmark = (id: string) => {
-        setBookmarked(prev =>
-            prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
-        );
+        const isBookmarked = bookmarked.includes(id);
+        const result = await toggleLibraryBookmark(user.id, id, isBookmarked);
+
+        if (result.success) {
+            setBookmarked(prev =>
+                isBookmarked ? prev.filter(b => b !== id) : [...prev, id]
+            );
+            toast(isBookmarked ? "Removed from bookmarks." : "Resource bookmarked!", "success");
+        } else {
+            toast("Bookmark protocol failed.", "error");
+        }
     };
+
+    const filtered = resources.filter(r => {
+        const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase()) ||
+            (r.tags && r.tags.some((t: string) => t.toLowerCase().includes(search.toLowerCase())));
+        const matchesType = selectedType === "All" || r.type === selectedType;
+        return matchesSearch && matchesType;
+    });
 
     return (
         <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
@@ -135,10 +165,25 @@ export default function LibraryPage() {
                     </div>
                 </header>
 
+                {/* Filter Tabs */}
+                <div className="flex flex-wrap gap-2 md:gap-3 border-b border-white/5 pb-6">
+                    {RESOURCE_TYPES.map(type => (
+                        <button
+                            key={type}
+                            onClick={() => setSelectedType(type)}
+                            className={`px-4 md:px-6 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${selectedType === type
+                                ? "bg-primary text-primary-foreground shadow-lg"
+                                : "text-muted-foreground hover:bg-white/5"
+                                }`}
+                        >
+                            {type}
+                        </button>
+                    ))}
+                </div>
+
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-                        <LibraryIcon className="w-12 h-12 text-muted-foreground/20" />
-                        <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Synchronizing Archives...</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+                        {[1, 2, 3, 4].map(i => <ResourceCardSkeleton key={i} />)}
                     </div>
                 ) : filtered.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
@@ -161,7 +206,7 @@ export default function LibraryPage() {
                                                     variant="ghost"
                                                     size="icon"
                                                     className={`w-8 h-8 md:w-10 md:h-10 rounded-xl transition-all ${bookmarked.includes(resource.id) ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'}`}
-                                                    onClick={() => toggleBookmark(resource.id)}
+                                                    onClick={() => handleToggleBookmark(resource.id)}
                                                 >
                                                     <Bookmark className={`w-4 h-4 md:w-5 md:h-5 ${bookmarked.includes(resource.id) ? 'fill-current' : ''}`} />
                                                 </Button>
@@ -193,10 +238,25 @@ export default function LibraryPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <Button className="flex-1 sm:flex-none rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg w-full sm:w-auto">
-                                                        <Download className="w-3 h-3 md:w-4 md:h-4 mr-2" />
-                                                        Get File
-                                                    </Button>
+                                                    {resource.file_url ? (
+                                                        <Button
+                                                            asChild
+                                                            className="flex-1 sm:flex-none rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-neon w-full sm:w-auto"
+                                                        >
+                                                            <a href={resource.file_url} target="_blank" rel="noopener noreferrer">
+                                                                <Download className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                                                                Get File
+                                                            </a>
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            disabled
+                                                            className="flex-1 sm:flex-none rounded-xl bg-secondary text-secondary-foreground font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg w-full sm:w-auto opacity-50"
+                                                        >
+                                                            <Download className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                                                            Unavailable
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -212,7 +272,7 @@ export default function LibraryPage() {
                         </div>
                         <div className="space-y-3">
                             <h3 className="text-2xl font-bold text-foreground uppercase tracking-tighter">Library Is Silent</h3>
-                            <p className="text-muted-foreground font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No real-world resources are currently available in the archives. Be the first to initialize the network with shared knowledge.</p>
+                            <p className="text-muted-foreground font-bold max-w-xs mx-auto text-[10px] uppercase tracking-widest leading-relaxed">No resources found matching the current protocol filters. Be the first to initialize the vault.</p>
                         </div>
                         <Button
                             onClick={() => setShowSubmitModal(true)}
@@ -248,61 +308,72 @@ export default function LibraryPage() {
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Contribute to the Archive</p>
                                 </div>
 
-                                <form onSubmit={handleSubmit} className="space-y-6">
-                                    <div className="space-y-4">
-                                        <div className="space-y-2">
+                                <form onSubmit={handleSubmit} className="space-y-5">
+                                    <div className="space-y-3">
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Title</label>
                                             <Input
                                                 required
                                                 value={newResource.title}
                                                 onChange={e => setNewResource({ ...newResource, title: e.target.value })}
                                                 placeholder="E.G. ADVANCED CALCULUS NOTES"
-                                                className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
+                                                className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
                                             />
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Type</label>
                                                 <select
                                                     value={newResource.type}
                                                     onChange={e => setNewResource({ ...newResource, type: e.target.value })}
-                                                    className="w-full rounded-xl border border-white/10 h-12 text-xs uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer"
+                                                    className="w-full rounded-xl border border-white/10 h-11 text-[10px] uppercase font-bold tracking-widest px-3 bg-secondary/50 text-foreground outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer"
                                                 >
-                                                    <option className="bg-slate-900 text-foreground">Notes</option>
-                                                    <option className="bg-slate-900 text-foreground">Slides</option>
-                                                    <option className="bg-slate-900 text-foreground">Ebook</option>
-                                                    <option className="bg-slate-900 text-foreground">Exam</option>
-                                                    <option className="bg-slate-900 text-foreground">Guide</option>
+                                                    {RESOURCE_TYPES.filter(t => t !== "All").map(t => (
+                                                        <option key={t} className="bg-slate-900 text-foreground">{t}</option>
+                                                    ))}
                                                 </select>
                                             </div>
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Author</label>
                                                 <Input
                                                     required
                                                     value={newResource.author_name}
                                                     onChange={e => setNewResource({ ...newResource, author_name: e.target.value })}
                                                     placeholder="YOUR NAME"
-                                                    className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
+                                                    className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
                                                 />
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">University</label>
                                             <Input
                                                 required
                                                 value={newResource.university}
                                                 onChange={e => setNewResource({ ...newResource, university: e.target.value })}
                                                 placeholder="E.G. HARVARD"
-                                                className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
+                                                className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
                                             />
                                         </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex items-center gap-1.5">
+                                                <Globe className="w-2.5 h-2.5" /> File URL (Drive/Scribd/etc)
+                                            </label>
+                                            <Input
+                                                required
+                                                type="url"
+                                                value={newResource.file_url}
+                                                onChange={e => setNewResource({ ...newResource, file_url: e.target.value })}
+                                                placeholder="HTTPS://DRIVE.GOOGLE.COM/..."
+                                                className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Tags (Comma separated)</label>
                                             <Input
                                                 value={newResource.tags}
                                                 onChange={e => setNewResource({ ...newResource, tags: e.target.value })}
                                                 placeholder="E.G. MATH, CS, SEMESTER 1"
-                                                className="rounded-xl border-white/10 bg-secondary/50 h-12 text-xs uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
+                                                className="rounded-xl border-white/10 bg-secondary/50 h-11 text-[10px] uppercase font-bold tracking-widest text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-primary"
                                             />
                                         </div>
                                     </div>
