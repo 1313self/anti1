@@ -211,6 +211,68 @@ export async function toggleBookmark(
     }
 }
 
+// --- Hustle Applications ---
+
+export async function applyToGig(
+    gigId: string,
+    userId: string,
+    message: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { error } = await supabaseAdmin
+            .from("hustle_applications")
+            .insert([{ gig_id: gigId, user_id: userId, message }]);
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error("Error applying to gig:", error);
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function getApplicationsForGig(gigId: string): Promise<{ success: boolean; applications?: any[]; error?: string }> {
+    try {
+        const { data, error } = await supabaseAdmin
+            .from("hustle_applications")
+            .select("*, profiles!user_id(full_name, avatar_url, university)")
+            .eq("gig_id", gigId)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        return { success: true, applications: data };
+    } catch (error) {
+        console.error("Error fetching applications:", error);
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function updateApplicationStatus(
+    applicationId: string,
+    status: "pending" | "accepted" | "rejected"
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const { error } = await supabaseAdmin
+            .from("hustle_applications")
+            .update({ status })
+            .eq("id", applicationId);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error("Error updating application status:", error);
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+export async function getMyApplications(userId: string): Promise<string[]> {
+    const { data } = await supabaseAdmin
+        .from("hustle_applications")
+        .select("gig_id")
+        .eq("user_id", userId);
+    return data?.map((r: { gig_id: string }) => r.gig_id) ?? [];
+}
+
+
 // --- Forge Requests ---
 
 export async function getMyForgeRequests(userId: string): Promise<{ project_id: string; status: string }[]> {

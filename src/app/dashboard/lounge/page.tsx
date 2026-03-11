@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     MessageSquare, Send, ArrowLeft, Hash, Loader2,
-    Trash2, AlertCircle, Smile
+    Trash2, AlertCircle, Smile, Reply, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ interface Message {
     content: string;
     created_at: string;
     channel: string;
+    parent_id?: string | null;
 }
 
 interface Reaction {
@@ -52,6 +53,7 @@ export default function LoungePage() {
     const [activeChannel, setActiveChannel] = useState("general");
     const [error, setError] = useState<string | null>(null);
     const [showPickerId, setShowPickerId] = useState<string | null>(null);
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -155,8 +157,10 @@ export default function LoungePage() {
             display_name: displayName,
             content,
             channel: activeChannel,
+            parent_id: replyingTo?.id || null,
         });
         if (error) setError("Failed to send. Try again.");
+        setReplyingTo(null);
         setSending(false);
         inputRef.current?.focus();
     };
@@ -260,89 +264,131 @@ export default function LoungePage() {
                             </div>
                         ) : (
                             <AnimatePresence initial={false}>
-                                {messages.map((msg) => {
+                                {messages.filter(m => !m.parent_id).map((msg) => {
                                     const isOwn = currentUser?.id === msg.user_id;
                                     const reactionCounts = getReactionCounts(msg.id);
                                     const hasReactions = Object.keys(reactionCounts).length > 0;
+                                    const threadReplies = messages.filter(m => m.parent_id === msg.id);
+
                                     return (
-                                        <motion.div
-                                            key={msg.id}
-                                            initial={{ opacity: 0, scale: 0.98, y: 5 }}
-                                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
-                                            transition={{ duration: 0.2 }}
-                                            className={`flex gap-3 group relative ${isOwn ? "flex-row-reverse" : ""}`}
-                                        >
-                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${isOwn ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground"}`}>
-                                                {msg.display_name?.[0]?.toUpperCase() || "?"}
-                                            </div>
-                                            <div className={`max-w-[80%] space-y-1 ${isOwn ? "items-end text-right" : "items-start text-left"} flex flex-col`}>
-                                                <div className={`flex items-center gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{isOwn ? "You" : msg.display_name}</span>
-                                                    <span className="text-[8px] text-muted-foreground/60">{formatTime(msg.created_at)}</span>
-                                                    {isOwn && (
-                                                        <button onClick={() => handleDelete(msg.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500 p-1">
-                                                            <Trash2 className="w-3 h-3" />
-                                                        </button>
-                                                    )}
+                                        <div key={msg.id} className="space-y-3">
+                                            {/* Main Message */}
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.98, y: 5 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                transition={{ duration: 0.2 }}
+                                                className={`flex gap-3 group relative ${isOwn ? "flex-row-reverse" : ""}`}
+                                            >
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 ${isOwn ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground"}`}>
+                                                    {msg.display_name?.[0]?.toUpperCase() || "?"}
                                                 </div>
-                                                <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium leading-snug break-words shadow-sm transition-all group-hover:shadow-md ${isOwn ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm hover:bg-secondary/80"}`}>
-                                                    {msg.content}
-                                                </div>
-
-                                                {/* Reactions row */}
-                                                <div className={`flex items-center gap-1 flex-wrap pt-0.5 ${isOwn ? "justify-end" : ""}`}>
-                                                    {hasReactions && Object.entries(reactionCounts).map(([emoji, count]) => (
-                                                        <button
-                                                            key={emoji}
-                                                            onClick={() => handleReaction(msg.id, emoji)}
-                                                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all border ${hasMyReaction(msg.id, emoji)
-                                                                ? "bg-primary/20 border-primary/40 text-primary shadow-sm"
-                                                                : "bg-secondary/60 border-transparent text-muted-foreground hover:bg-secondary hover:border-border"
-                                                                }`}
-                                                        >
-                                                            <span>{emoji}</span>
-                                                            <span>{count}</span>
-                                                        </button>
-                                                    ))}
-
-                                                    {/* Emoji toggle button for mobile/hover */}
-                                                    {currentUser && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setShowPickerId(showPickerId === msg.id ? null : msg.id);
-                                                            }}
-                                                            className={`p-1 rounded-full text-muted-foreground hover:text-primary transition-all ${showPickerId === msg.id ? "bg-secondary opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                                                        >
-                                                            <Smile className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    )}
-
-                                                    {/* Emoji picker */}
-                                                    <AnimatePresence>
-                                                        {showPickerId === msg.id && (
-                                                            <motion.div
-                                                                initial={{ opacity: 0, y: 5, scale: 0.9 }}
-                                                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                                exit={{ opacity: 0, y: 5, scale: 0.9 }}
-                                                                className="absolute bottom-full mb-2 z-50 flex items-center gap-1 bg-card border border-border rounded-2xl px-3 py-1.5 shadow-2xl"
+                                                <div className={`max-w-[80%] space-y-1 ${isOwn ? "items-end text-right" : "items-start text-left"} flex flex-col`}>
+                                                    <div className={`flex items-center gap-2 ${isOwn ? "flex-row-reverse" : ""}`}>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{isOwn ? "You" : msg.display_name}</span>
+                                                        <span className="text-[8px] text-muted-foreground/60">{formatTime(msg.created_at)}</span>
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => setReplyingTo(msg)}
+                                                                className="text-muted-foreground hover:text-primary p-1"
+                                                                title="Reply"
                                                             >
-                                                                {EMOJI_OPTIONS.map(e => (
-                                                                    <button
-                                                                        key={e}
-                                                                        onClick={() => handleReaction(msg.id, e)}
-                                                                        className={`text-lg hover:scale-135 transition-transform px-1 active:scale-95 ${hasMyReaction(msg.id, e) ? "opacity-100 bg-primary/10 rounded-lg" : "opacity-70 hover:opacity-100"}`}
-                                                                    >
-                                                                        {e}
-                                                                    </button>
-                                                                ))}
-                                                            </motion.div>
+                                                                <Reply className="w-3 h-3" />
+                                                            </button>
+                                                            {isOwn && (
+                                                                <button onClick={() => handleDelete(msg.id)} className="text-muted-foreground hover:text-rose-500 p-1">
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium leading-snug break-words shadow-sm transition-all group-hover:shadow-md ${isOwn ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-secondary text-foreground rounded-tl-sm hover:bg-secondary/80"}`}>
+                                                        {msg.content}
+                                                    </div>
+
+                                                    {/* Reactions row */}
+                                                    <div className={`flex items-center gap-1 flex-wrap pt-0.5 ${isOwn ? "justify-end" : ""}`}>
+                                                        {hasReactions && Object.entries(reactionCounts).map(([emoji, count]) => (
+                                                            <button
+                                                                key={emoji}
+                                                                onClick={() => handleReaction(msg.id, emoji)}
+                                                                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold transition-all border ${hasMyReaction(msg.id, emoji)
+                                                                    ? "bg-primary/20 border-primary/40 text-primary shadow-sm"
+                                                                    : "bg-secondary/60 border-transparent text-muted-foreground hover:bg-secondary hover:border-border"
+                                                                    }`}
+                                                            >
+                                                                <span>{emoji}</span>
+                                                                <span>{count}</span>
+                                                            </button>
+                                                        ))}
+
+                                                        {/* Emoji toggle button */}
+                                                        {currentUser && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setShowPickerId(showPickerId === msg.id ? null : msg.id);
+                                                                }}
+                                                                className={`p-1 rounded-full text-muted-foreground hover:text-primary transition-all ${showPickerId === msg.id ? "bg-secondary opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                                                            >
+                                                                <Smile className="w-3.5 h-3.5" />
+                                                            </button>
                                                         )}
-                                                    </AnimatePresence>
+
+                                                        {/* Emoji picker */}
+                                                        <AnimatePresence>
+                                                            {showPickerId === msg.id && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 5, scale: 0.9 }}
+                                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                                    exit={{ opacity: 0, y: 5, scale: 0.9 }}
+                                                                    className="absolute bottom-full mb-2 z-50 flex items-center gap-1 bg-card border border-border rounded-2xl px-3 py-1.5 shadow-2xl"
+                                                                >
+                                                                    {EMOJI_OPTIONS.map(e => (
+                                                                        <button key={e} onClick={() => handleReaction(msg.id, e)} className={`text-lg hover:scale-135 transition-transform px-1 active:scale-95 ${hasMyReaction(msg.id, e) ? "opacity-100 bg-primary/10 rounded-lg" : "opacity-70 hover:opacity-100"}`}>{e}</button>
+                                                                    ))}
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </motion.div>
+                                            </motion.div>
+
+                                            {/* Thread Replies */}
+                                            {threadReplies.length > 0 && (
+                                                <div className={`space-y-2 pt-1 ${isOwn ? "mr-10" : "ml-10"}`}>
+                                                    {threadReplies.map((reply) => {
+                                                        const isReplyOwn = currentUser?.id === reply.user_id;
+                                                        return (
+                                                            <motion.div
+                                                                key={reply.id}
+                                                                initial={{ opacity: 0, x: isReplyOwn ? 10 : -10 }}
+                                                                animate={{ opacity: 1, x: 0 }}
+                                                                className={`flex gap-2 items-start ${isReplyOwn ? "flex-row-reverse" : ""}`}
+                                                            >
+                                                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-black shrink-0 ${isReplyOwn ? "bg-primary/80 text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                                                                    {reply.display_name?.[0]?.toUpperCase() || "?"}
+                                                                </div>
+                                                                <div className={`max-w-[85%] space-y-0.5 ${isReplyOwn ? "items-end text-right" : "items-start text-left"} flex flex-col`}>
+                                                                    <div className={`flex items-center gap-1.5 ${isReplyOwn ? "flex-row-reverse" : ""}`}>
+                                                                        <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">{isReplyOwn ? "You" : reply.display_name}</span>
+                                                                        <span className="text-[7px] text-muted-foreground/40">{formatTime(reply.created_at)}</span>
+                                                                        {isReplyOwn && (
+                                                                            <button onClick={() => handleDelete(reply.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-rose-500 p-0.5">
+                                                                                <Trash2 className="w-2.5 h-2.5" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className={`px-3 py-1.5 rounded-xl text-xs font-medium leading-snug break-words shadow-sm ${isReplyOwn ? "bg-primary/10 border border-primary/20 text-foreground" : "bg-card border border-border text-foreground"}`}>
+                                                                        {reply.content}
+                                                                    </div>
+                                                                </div>
+                                                            </motion.div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 })}
                             </AnimatePresence>
@@ -352,6 +398,26 @@ export default function LoungePage() {
 
                     {/* Input Bar */}
                     <div className="border-t border-border p-4 bg-card/30">
+                        <AnimatePresence>
+                            {replyingTo && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    className="mb-3 p-2 px-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Reply className="w-3 h-3 text-primary" />
+                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                            Replying to <span className="text-primary">{replyingTo.display_name}</span>
+                                        </span>
+                                    </div>
+                                    <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-secondary rounded-lg transition-colors">
+                                        <X className="w-3 h-3 text-muted-foreground" />
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                         <form onSubmit={handleSend} className="flex gap-2">
                             <div className="flex-1 relative">
                                 <Input

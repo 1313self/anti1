@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Briefcase, ArrowLeft, ExternalLink, TrendingUp,
-    Building2, Calendar, Sparkles, Search, Heart, Info
+    Building2, Calendar, Sparkles, Search, Heart, Info,
+    User, Check, X, Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { getGigs, createGig, getBookmarkedGigIds, toggleBookmark } from "../featureActions";
+import {
+    getGigs, createGig, getBookmarkedGigIds, toggleBookmark,
+    applyToGig, getApplicationsForGig, updateApplicationStatus, getMyApplications
+} from "../featureActions";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/toast";
 import { Gig } from "@/lib/types";
@@ -29,6 +33,12 @@ export default function HustlePage() {
     const [togglingId, setTogglingId] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [expandedGig, setExpandedGig] = useState<string | null>(null);
+    const [appliedGigIds, setAppliedGigIds] = useState<string[]>([]);
+    const [showApplyModal, setShowApplyModal] = useState<Gig | null>(null);
+    const [applyMessage, setApplyMessage] = useState("");
+    const [viewingApplicants, setViewingApplicants] = useState<Gig | null>(null);
+    const [applicants, setApplicants] = useState<any[]>([]);
+    const [loadingApplicants, setLoadingApplicants] = useState(false);
 
     // Modal & Form State
     const [showPostModal, setShowPostModal] = useState(false);
@@ -61,6 +71,7 @@ export default function HustlePage() {
             if (user) {
                 setCurrentUser(user);
                 getBookmarkedGigIds(user.id).then(setBookmarkedIds);
+                getMyApplications(user.id).then(setAppliedGigIds);
             }
         });
     }, []);
@@ -104,6 +115,43 @@ export default function HustlePage() {
             toast("An error occurred while posting.", "error");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleApply = async () => {
+        if (!currentUser || !showApplyModal) return;
+        setSubmitting(true);
+        const result = await applyToGig(showApplyModal.id, currentUser.id, applyMessage);
+        if (result.success) {
+            setAppliedGigIds(prev => [...prev, showApplyModal.id]);
+            setShowApplyModal(null);
+            setApplyMessage("");
+            toast("Application sent successfully!", "success");
+        } else {
+            toast("Failed to apply: " + result.error, "error");
+        }
+        setSubmitting(false);
+    };
+
+    const handleViewApplicants = async (gig: Gig) => {
+        setViewingApplicants(gig);
+        setLoadingApplicants(true);
+        const result = await getApplicationsForGig(gig.id);
+        if (result.success) {
+            setApplicants(result.applications || []);
+        } else {
+            toast("Failed to load applicants.", "error");
+        }
+        setLoadingApplicants(false);
+    };
+
+    const handleUpdateStatus = async (appId: string, status: "accepted" | "rejected") => {
+        const result = await updateApplicationStatus(appId, status);
+        if (result.success) {
+            setApplicants(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
+            toast(`Application ${status}!`, status === "accepted" ? "success" : "info");
+        } else {
+            toast("Update failed.", "error");
         }
     };
 
@@ -272,18 +320,25 @@ export default function HustlePage() {
                                                                 {expandedGig === gig.id ? "Minimize" : "Details"}
                                                             </Button>
                                                         )}
-                                                        <Button
-                                                            asChild={!!gig.link}
-                                                            className="flex-2 sm:flex-none rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-6 md:px-8 h-10 md:h-12 shadow-lg"
-                                                        >
-                                                            {gig.link ? (
-                                                                <a href={gig.link} target="_blank" rel="noopener noreferrer">
-                                                                    Apply <ExternalLink className="w-3.5 h-3.5 ml-2" />
-                                                                </a>
-                                                            ) : (
-                                                                <span className="cursor-default">Apply</span>
-                                                            )}
-                                                        </Button>
+                                                        {currentUser?.id === (gig as any).posted_by ? (
+                                                            <Button
+                                                                onClick={() => handleViewApplicants(gig)}
+                                                                className="flex-2 sm:flex-none rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-6 md:px-8 h-10 md:h-12 shadow-lg"
+                                                            >
+                                                                Applicants
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                disabled={appliedGigIds.includes(gig.id)}
+                                                                onClick={() => setShowApplyModal(gig)}
+                                                                className={`flex-2 sm:flex-none rounded-xl font-bold uppercase text-[9px] md:text-[10px] tracking-widest px-6 md:px-8 h-10 md:h-12 shadow-lg ${appliedGigIds.includes(gig.id)
+                                                                    ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/20"
+                                                                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                                                    }`}
+                                                            >
+                                                                {appliedGigIds.includes(gig.id) ? "Applied" : "Apply"}
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </CardContent>
@@ -394,6 +449,119 @@ export default function HustlePage() {
                                         </Button>
                                     </div>
                                 </form>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            {/* Apply Modal */}
+            <AnimatePresence>
+                {showApplyModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowApplyModal(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-lg bg-card/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10">
+                            <div className="p-8 md:p-10 space-y-6">
+                                <div className="space-y-2 text-center">
+                                    <h2 className="text-2xl font-bold text-foreground uppercase tracking-tight">Apply for Hustle</h2>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{showApplyModal.title} @ {showApplyModal.company}</p>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Your Pitch / Message</label>
+                                        <textarea
+                                            value={applyMessage}
+                                            onChange={e => setApplyMessage(e.target.value)}
+                                            placeholder="Briefly explain why you're a good fit for this gig..."
+                                            className="w-full rounded-xl border border-white/10 bg-secondary/50 p-4 text-[11px] font-medium tracking-wide text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/50 outline-none h-32 resize-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="flex gap-4 pt-2">
+                                        <Button variant="ghost" onClick={() => setShowApplyModal(null)} className="flex-1 rounded-xl h-14 uppercase font-bold text-[10px] tracking-widest text-muted-foreground hover:bg-white/5 hover:text-foreground">Cancel</Button>
+                                        <Button
+                                            disabled={submitting || !applyMessage.trim()}
+                                            onClick={handleApply}
+                                            className="flex-1 rounded-xl h-14 bg-primary text-primary-foreground font-bold uppercase text-[10px] tracking-widest shadow-neon hover:scale-105 transition-all"
+                                        >
+                                            {submitting ? "Transmitting..." : "Send Application"}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Applicants Modal */}
+            <AnimatePresence>
+                {viewingApplicants && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setViewingApplicants(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-2xl bg-card/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/10 max-h-[85vh] flex flex-col">
+                            <div className="p-8 border-b border-white/5 shrink-0">
+                                <h2 className="text-2xl font-bold text-foreground uppercase tracking-tight">Manage Applicants</h2>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">For: {viewingApplicants.title}</p>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                                {loadingApplicants ? (
+                                    <div className="py-20 text-center animate-pulse text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Retrieving profiles...</div>
+                                ) : applicants.length > 0 ? (
+                                    applicants.map((app) => (
+                                        <div key={app.id} className="glass p-5 rounded-2xl space-y-4 border-white/5">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-xs font-black">
+                                                        {app.profiles?.avatar_url ? (
+                                                            <img src={app.profiles.avatar_url} alt="" className="w-full h-full rounded-xl object-cover" />
+                                                        ) : (
+                                                            app.profiles?.full_name?.[0] || "?"
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-bold text-sm text-foreground">{app.profiles?.full_name}</h4>
+                                                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{app.profiles?.university}</p>
+                                                    </div>
+                                                </div>
+                                                <Badge className={`uppercase text-[8px] font-black tracking-widest px-2.5 h-6 ${app.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                                        app.status === 'rejected' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
+                                                            'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                                    }`}>
+                                                    {app.status}
+                                                </Badge>
+                                            </div>
+                                            <div className="bg-secondary/30 rounded-xl p-4 text-xs text-muted-foreground italic leading-relaxed">
+                                                "{app.message}"
+                                            </div>
+                                            {app.status === 'pending' && (
+                                                <div className="flex gap-2 pt-2">
+                                                    <Button
+                                                        onClick={() => handleUpdateStatus(app.id, 'accepted')}
+                                                        className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold uppercase text-[9px] tracking-widest h-10 shadow-lg shadow-emerald-500/20"
+                                                    >
+                                                        <Check className="w-3 h-3 mr-2" /> Hire
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => handleUpdateStatus(app.id, 'rejected')}
+                                                        variant="ghost"
+                                                        className="flex-1 rounded-xl hover:bg-rose-500/10 text-rose-500 font-bold uppercase text-[9px] tracking-widest h-10"
+                                                    >
+                                                        <X className="w-3 h-3 mr-2" /> Decline
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-20 text-center space-y-4">
+                                        <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mx-auto opacity-50">
+                                            <Mail className="w-6 h-6" />
+                                        </div>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">No applications transmitted yet.</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-6 border-t border-white/5 shrink-0">
+                                <Button onClick={() => setViewingApplicants(null)} className="w-full rounded-xl bg-secondary text-foreground font-bold uppercase text-[10px] tracking-widest h-12">Close Manager</Button>
                             </div>
                         </motion.div>
                     </div>

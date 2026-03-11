@@ -82,7 +82,7 @@ export async function findConnections(userId: string) {
             query_embedding: userProfile.embedding,
             match_threshold: 0.5,
             match_count: 10,
-        }) as any).select('id, full_name, bio, hobbies, academic_aim, similarity, instagram, discord');
+        }) as any).select('id, full_name, bio, hobbies, skills, academic_aim, similarity, instagram, discord');
 
         if (matchError) throw matchError;
 
@@ -103,6 +103,7 @@ export async function findConnections(userId: string) {
             Target User Profile:
             - Name: ${userProfile.full_name}
             - Bio: ${userProfile.bio}
+            - Skills: ${userProfile.skills?.join(", ") || "None listed"}
             - Hobbies: ${userProfile.hobbies?.join(", ")}
             - Academic Aim: ${userProfile.academic_aim}
             - Peak Hours: ${userProfile.peak_hours}
@@ -112,13 +113,16 @@ export async function findConnections(userId: string) {
             Collaborator ${i + 1}:
             - Name: ${m.full_name}
             - Bio: ${m.bio}
+            - Skills: ${m.skills?.join(", ") || "None listed"}
             - Hobbies: ${m.hobbies?.join(", ")}
             - Major: ${m.academic_aim}
             `).join("\n")}
 
             For each collaborator, provide:
-            1. A compatibility_score (1-100).
-            2. A connection_reason (One friendly, short sentence explaining why they are a good match).
+            1. A compatibility_score (1-100). 
+               - Higher scores for complementary skills (e.g., Designer + Developer).
+               - Higher scores for shared niche interests or academic goals.
+            2. A connection_reason (One friendly, short sentence explaining why they are a good match, specifically mentioning skills or goals they share or complement).
 
             Return the data in a strict JSON array format:
             [
@@ -166,15 +170,19 @@ export async function findConnections(userId: string) {
 
 // Helper to generate a deterministic reason based on profile data
 function generateDeterministicReason(userProfile: any, matchProfile: any): string {
+    const sharedSkills = userProfile.skills?.filter((s: string) => matchProfile.skills?.includes(s)) || [];
     const sharedHobbies = userProfile.hobbies?.filter((h: string) => matchProfile.hobbies?.includes(h)) || [];
     const sameAim = userProfile.academic_aim === matchProfile.academic_aim;
     const samePeak = userProfile.peak_hours === matchProfile.peak_hours;
 
+    if (sharedSkills.length > 0) {
+        return `You both excel in ${sharedSkills.join(" and ")}, making you a powerful duo.`;
+    }
     if (sameAim && sharedHobbies.length > 0) {
         return `You both study ${matchProfile.academic_aim} and enjoy ${sharedHobbies[0]}.`;
     }
     if (sameAim) {
-        return `You are both focused on ${matchProfile.academic_aim}.`;
+        return `You are both focused on ${matchProfile.academic_aim}, ideal for academic collaboration.`;
     }
     if (sharedHobbies.length > 0) {
         return `You both share an interest in ${sharedHobbies.join(" and ")}.`;

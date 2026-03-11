@@ -236,4 +236,20 @@
             transform: translateY(0);
         }
     }
+
+    /* Cinematic Utilities */
+    .cinematic-glow {
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.4), 0 0 20px rgba(99, 102, 241, 0.3);
+    }
+
+    .shimmer {
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
 }
