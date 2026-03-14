@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 
 export const SplashScreen = () => {
   const [isVisible, setIsVisible] = useState(true);
@@ -14,7 +14,7 @@ export const SplashScreen = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const container = {
+  const container: Variants = {
     hidden: { opacity: 0 },
     visible: (i = 1) => ({
       opacity: 1,
@@ -28,7 +28,7 @@ export const SplashScreen = () => {
     },
   };
 
-  const child = {
+  const child: Variants = {
     visible: {
       opacity: 1,
       y: 0,
