@@ -5,40 +5,48 @@ import { ArrowRight, Users, Library, Terminal, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SplashScreen } from "@/components/SplashScreen";
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.15,
-      delayChildren: 0.3,
-    },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 30, filter: "blur(10px)" },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
-    filter: "blur(0px)",
-    transition: {
-      type: "spring",
-      damping: 20,
-      stiffness: 80,
-    }
-  },
-};
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 export default function LandingPage() {
+  const isMobile = useMediaQuery("(max-width: 768px)");
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: isMobile ? 0.1 : 0.15,
+        delayChildren: isMobile ? 0.1 : 0.3,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { 
+      opacity: 0, 
+      y: isMobile ? 15 : 30, 
+      filter: isMobile ? "none" : "blur(10px)" 
+    },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      filter: isMobile ? "none" : "blur(0px)",
+      transition: {
+        type: isMobile ? "tween" : "spring",
+        duration: 0.5,
+        damping: 20,
+        stiffness: 80,
+      }
+    },
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
       <SplashScreen />
 
-      {/* Dynamic Background Accents */}
+      {/* Dynamic Background Accents - Simplified on mobile */}
       <motion.div 
-        animate={{ 
+        animate={isMobile ? { opacity: 0.05 } : { 
           scale: [1, 1.1, 1],
           opacity: [0.05, 0.08, 0.05],
         }}
@@ -46,7 +54,7 @@ export default function LandingPage() {
         className="absolute top-[-5%] right-[-5%] w-[800px] h-[800px] bg-indigo-500/5 blur-[120px] rounded-full" 
       />
       <motion.div 
-        animate={{ 
+        animate={isMobile ? { opacity: 0.05 } : { 
           scale: [1.1, 1, 1.1],
           opacity: [0.05, 0.08, 0.05],
         }}
@@ -106,7 +114,7 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
           <motion.div
             variants={itemVariants}
-            whileHover={{ y: -10, transition: { duration: 0.3 } }}
+            whileHover={isMobile ? {} : { y: -10, transition: { duration: 0.3 } }}
             className="glass-card p-10 rounded-[2.5rem] text-left space-y-5"
           >
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center border border-indigo-100 shadow-sm">
@@ -118,7 +126,7 @@ export default function LandingPage() {
 
           <motion.div
             variants={itemVariants}
-            whileHover={{ y: -10, transition: { duration: 0.3 } }}
+            whileHover={isMobile ? {} : { y: -10, transition: { duration: 0.3 } }}
             className="glass-card p-10 rounded-[2.5rem] text-left space-y-5"
           >
             <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100 shadow-sm">
@@ -130,7 +138,7 @@ export default function LandingPage() {
 
           <motion.div
             variants={itemVariants}
-            whileHover={{ y: -10, transition: { duration: 0.3 } }}
+            whileHover={isMobile ? {} : { y: -10, transition: { duration: 0.3 } }}
             className="glass-card p-10 rounded-[2.5rem] text-left space-y-5"
           >
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center border border-emerald-100 shadow-sm">

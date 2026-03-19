@@ -1,19 +1,22 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 export default function Loading() {
+  const isMobile = useMediaQuery("(max-width: 768px)");
+
   return (
     <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-50">
       <div className="relative w-24 h-24">
-        {/* Animated Rings */}
+        {/* Animated Rings - Simplified on mobile */}
         <motion.div
           animate={{
             rotate: 360,
-            scale: [1, 1.1, 1],
+            scale: isMobile ? 1 : [1, 1.1, 1], // Disable scale oscillation on mobile
           }}
           transition={{
-            rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+            rotate: { duration: isMobile ? 3 : 2, repeat: Infinity, ease: "linear" }, // Slower on mobile
             scale: { duration: 1, repeat: Infinity, ease: "easeInOut" },
           }}
           className="absolute inset-0 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full"
@@ -21,10 +24,10 @@ export default function Loading() {
         <motion.div
           animate={{
             rotate: -360,
-            scale: [1.1, 1, 1.1],
+            scale: isMobile ? 1 : [1.1, 1, 1.1],
           }}
           transition={{
-            rotate: { duration: 1.5, repeat: Infinity, ease: "linear" },
+            rotate: { duration: isMobile ? 2.5 : 1.5, repeat: Infinity, ease: "linear" },
             scale: { duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
           }}
           className="absolute inset-4 border-4 border-blue-500/20 border-t-blue-500 rounded-full"
@@ -45,7 +48,7 @@ export default function Loading() {
             <motion.div
               key={i}
               animate={{
-                scale: [1, 1.5, 1],
+                scale: isMobile ? 1 : [1, 1.5, 1],
                 opacity: [0.3, 1, 0.3],
               }}
               transition={{
