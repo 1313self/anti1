@@ -3,19 +3,24 @@
 import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
 
-export async function updateStudyStatus(userId: string, isLive: boolean) {
+export async function updateMeetNowStatus(userId: string, isLive: boolean, intent: string | null = null) {
     try {
         const { error } = await supabase
             .from('profiles')
-            .update({ live_now: isLive })
+            .update({ 
+                live_now: isLive,
+                meeting_intent: intent,
+                meet_now_expiry: isLive ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null // Default 1 hour
+            })
             .eq('id', userId);
 
         if (error) throw error;
 
         revalidatePath("/dashboard");
+        revalidatePath("/dashboard/discovery");
         return { success: true };
     } catch (error) {
-        console.error("Error in updateStudyStatus:", error);
+        console.error("Error in updateMeetNowStatus:", error);
         return { success: false, error: (error as Error).message };
     }
 }

@@ -29,19 +29,22 @@ export default function DiscoveryPage() {
     const [search, setSearch] = useState("");
     const [peakFilter, setPeakFilter] = useState("Any");
     const [aimFilter, setAimFilter] = useState("Any");
+    const [liveOnly, setLiveOnly] = useState(false);
 
     const filtered = useMemo(() => connections.filter(c => {
         const matchesSearch = c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
             c.academic_aim?.toLowerCase().includes(search.toLowerCase()) ||
+            (c as any).meeting_intent?.toLowerCase().includes(search.toLowerCase()) ||
             (c.hobbies && c.hobbies.some(h => h.toLowerCase().includes(search.toLowerCase()))) ||
             ((c as any).skills && (c as any).skills.some((s: string) => s.toLowerCase().includes(search.toLowerCase())));
         const matchesPeak = peakFilter === "Any" || c.peak_hours === peakFilter;
         const matchesAim = aimFilter === "Any" || c.academic_aim?.toLowerCase().includes(aimFilter.toLowerCase());
+        const matchesLive = !liveOnly || (c as any).live_now;
 
-        return matchesSearch && matchesPeak && matchesAim;
-    }), [connections, search, peakFilter, aimFilter]);
+        return matchesSearch && matchesPeak && matchesAim && matchesLive;
+    }), [connections, search, peakFilter, aimFilter, liveOnly]);
 
-    const hasFilters = peakFilter !== "Any" || aimFilter !== "Any" || search !== "";
+    const hasFilters = peakFilter !== "Any" || aimFilter !== "Any" || search !== "" || liveOnly;
 
     useEffect(() => {
         async function getConnections() {
@@ -154,9 +157,16 @@ export default function DiscoveryPage() {
                     >
                         {ACADEMIC_AIMS.map(a => <option key={a} className="bg-card text-foreground">{a}</option>)}
                     </select>
+                    <button 
+                        onClick={() => setLiveOnly(!liveOnly)} 
+                        className={`shrink-0 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${liveOnly ? "bg-primary text-primary-foreground border-primary shadow-lg" : "border-border text-muted-foreground hover:bg-accent"}`}
+                    >
+                        <Zap className={`w-3 h-3 mr-1.5 inline ${liveOnly ? 'text-white' : 'text-primary'}`} />
+                        Ready to Meet
+                    </button>
                 </div>
                 {hasFilters && (
-                    <button onClick={() => { setPeakFilter("Any"); setAimFilter("Any"); setSearch(""); }} className="ml-auto text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors">
+                    <button onClick={() => { setPeakFilter("Any"); setAimFilter("Any"); setSearch(""); setLiveOnly(false); }} className="ml-auto text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 transition-colors">
                         Reset Radar ×
                     </button>
                 )}
@@ -184,10 +194,15 @@ export default function DiscoveryPage() {
                                             <span className="text-2xl md:text-3xl font-black text-foreground">{connection.full_name ? connection.full_name[0] : "U"}</span>
                                             <div className="absolute inset-[-4px] rounded-full border border-primary/20 animate-pulse opacity-50" />
                                         </div>
-                                        <div className="absolute top-4 right-4">
+                                        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
                                             <Badge className="bg-background/80 backdrop-blur-md border border-primary/20 text-primary font-black text-[8px] md:text-[9px] px-2.5 h-6 shadow-sm">
                                                 {connection.compatibility_score}% MATCH
                                             </Badge>
+                                            {(connection as any).live_now && (
+                                                <Badge className="bg-primary border-primary text-white font-black text-[7px] md:text-[8px] px-2 h-5 animate-pulse uppercase tracking-widest shadow-neon">
+                                                    {(connection as any).meeting_intent || "MEET NOW"}
+                                                </Badge>
+                                            )}
                                         </div>
                                     </div>
 

@@ -8,8 +8,7 @@ import {
     Heart, BarChart3, Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StudyBuddyToggle } from "@/components/StudyBuddyToggle";
-import { StudyAI } from "@/components/StudyAI";
+import { MeetNowToggle } from "@/components/MeetNowToggle";
 import { supabase } from "@/lib/supabase";
 import { getDashboardStats } from "./featureActions";
 import { StatCardSkeleton } from "@/components/ui/skeleton";
@@ -123,7 +122,7 @@ export default function DashboardPage() {
                     </div>
                 </header>
 
-                <StudyBuddyToggle />
+                <MeetNowToggle />
 
                 {/* Main Grid System */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -241,7 +240,6 @@ export default function DashboardPage() {
                         </div>
                     </motion.div>
                 </div>
-                <StudyAI />
             </main>
         </div>
     );
