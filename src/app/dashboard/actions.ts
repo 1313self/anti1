@@ -19,3 +19,18 @@ export async function updateStudyStatus(userId: string, isLive: boolean) {
         return { success: false, error: (error as Error).message };
     }
 }
+
+export async function getLiveStudyCount() {
+    try {
+        const { count, error } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('live_now', true);
+        
+        if (error) throw error;
+        return { success: true, count: count || 0 };
+    } catch (error) {
+        console.error("Error in getLiveStudyCount:", error);
+        return { success: false, count: 0 };
+    }
+}

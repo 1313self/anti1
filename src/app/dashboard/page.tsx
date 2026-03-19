@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StudyBuddyToggle } from "@/components/StudyBuddyToggle";
+import { StudyAI } from "@/components/StudyAI";
 import { supabase } from "@/lib/supabase";
 import { getDashboardStats } from "./featureActions";
 import { StatCardSkeleton } from "@/components/ui/skeleton";
@@ -240,6 +241,7 @@ export default function DashboardPage() {
                         </div>
                     </motion.div>
                 </div>
+                <StudyAI />
             </main>
         </div>
     );
