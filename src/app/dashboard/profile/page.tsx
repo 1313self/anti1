@@ -14,7 +14,7 @@ import { Profile } from "@/lib/types";
 import {
     User, Mail, Book, Heart, MessageSquare,
     ArrowLeft, Save, Loader2, Sparkles, UserCircle, CheckCircle2,
-    Code2, Clock, Instagram
+    Code2, Clock, Instagram, Github, Users
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -34,6 +34,8 @@ export default function ProfilePage() {
         study_window: "",
         instagram: "",
         discord: "",
+        github_username: "",
+        university: "",
     });
 
     useEffect(() => {
@@ -63,6 +65,8 @@ export default function ProfilePage() {
                     study_window: profile.study_window || "",
                     instagram: profile.instagram || "",
                     discord: profile.discord || "",
+                    github_username: (profile as any).github_username || "",
+                    university: (profile as any).university || "",
                 });
             } else if (error) {
                 console.error("Profile load error:", error);
@@ -90,6 +94,8 @@ export default function ProfilePage() {
             studyWindow: formData.study_window,
             instagram: formData.instagram,
             discord: formData.discord,
+            githubUsername: formData.github_username,
+            university: formData.university,
         });
 
         if (!result.success) {
@@ -282,6 +288,32 @@ export default function ProfilePage() {
                                     className="rounded-xl bg-secondary/50 border-border h-12 md:h-14 font-black text-foreground text-base"
                                     placeholder="username#0000"
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-muted-foreground uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                        <Github className="w-3 h-3" /> GitHub (Optional)
+                                    </Label>
+                                    <Input
+                                        value={formData.github_username}
+                                        onChange={e => setFormData({ ...formData, github_username: e.target.value })}
+                                        className="rounded-xl bg-secondary/50 border-border h-12 md:h-14 font-black text-foreground text-base"
+                                        placeholder="GitHub handle..."
+                                    />
+                                    <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest px-1">Optional but enables Skill-Proof verification</p>
+                                </div>
+                                <div className="space-y-3 md:space-y-4">
+                                    <Label className="text-muted-foreground uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                        <Users className="w-3 h-3" /> University (Optional)
+                                    </Label>
+                                    <Input
+                                        value={formData.university}
+                                        onChange={e => setFormData({ ...formData, university: e.target.value })}
+                                        className="rounded-xl bg-secondary/50 border-border h-12 md:h-14 font-black text-foreground text-base"
+                                        placeholder="University Name..."
+                                    />
+                                </div>
                             </div>
 
                             {error && (

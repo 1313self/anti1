@@ -15,6 +15,8 @@ export async function createProfile(formData: {
     bio: string;
     instagram?: string;
     discord?: string;
+    githubUsername?: string;
+    university?: string;
 }) {
     try {
         // 1. Generate embedding for the bio
@@ -45,6 +47,8 @@ export async function createProfile(formData: {
                 bio: formData.bio,
                 instagram: formData.instagram || null,
                 discord: formData.discord || null,
+                github_username: formData.githubUsername || null,
+                university: formData.university || null,
                 embedding: embedding,
                 updated_at: new Date().toISOString(),
             });
@@ -71,6 +75,8 @@ export async function updateProfile(formData: {
     studyWindow: string;
     instagram?: string;
     discord?: string;
+    githubUsername?: string;
+    university?: string;
 }) {
     try {
         const { error } = await supabaseAdmin
@@ -84,6 +90,8 @@ export async function updateProfile(formData: {
                 study_window: formData.studyWindow,
                 instagram: formData.instagram || null,
                 discord: formData.discord || null,
+                github_username: formData.githubUsername || null,
+                university: formData.university || null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', formData.userId);

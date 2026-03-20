@@ -165,13 +165,6 @@ export default function DashboardPage() {
                         color="blue"
                     />
                     <GridItem
-                        icon={<MessageSquare className="w-6 h-6 text-emerald-400" />}
-                        title="Lounge"
-                        desc="Campus Pulse"
-                        href="/dashboard/lounge"
-                        color="emerald"
-                    />
-                    <GridItem
                         icon={<Terminal className="w-6 h-6 text-amber-400" />}
                         title="The Forge"
                         desc="Start Projects"
@@ -180,9 +173,9 @@ export default function DashboardPage() {
                     />
                     <GridItem
                         icon={<Briefcase className="w-6 h-6 text-rose-400" />}
-                        title="The Hustle"
-                        desc="Opportunities"
-                        href="/dashboard/hustle"
+                        title="Intern Nest"
+                        desc="Career & Ops"
+                        href="/dashboard/intern-nest"
                         color="rose"
                     />
                 </div>

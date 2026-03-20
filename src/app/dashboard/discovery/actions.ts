@@ -82,7 +82,7 @@ export async function findConnections(userId: string) {
             query_embedding: userProfile.embedding,
             match_threshold: 0.5,
             match_count: 10,
-        }) as any).select('id, full_name, bio, hobbies, skills, academic_aim, similarity, instagram, discord');
+        }) as any).select('id, full_name, bio, hobbies, skills, academic_aim, similarity, instagram, discord, github_username, university, live_now, meeting_intent, meet_now_expiry');
 
         if (matchError) throw matchError;
 
@@ -114,15 +114,17 @@ export async function findConnections(userId: string) {
             - Name: ${m.full_name}
             - Bio: ${m.bio}
             - Skills: ${m.skills?.join(", ") || "None listed"}
-            - Hobbies: ${m.hobbies?.join(", ")}
             - Major: ${m.academic_aim}
+            - Live Now: ${m.live_now ? "YES" : "NO"}
+            - Meeting Intent: ${m.meeting_intent || "N/A"}
             `).join("\n")}
 
             For each collaborator, provide:
             1. A compatibility_score (1-100). 
                - Higher scores for complementary skills (e.g., Designer + Developer).
-               - Higher scores for shared niche interests or academic goals.
-            2. A connection_reason (One friendly, short sentence explaining why they are a good match, specifically mentioning skills or goals they share or complement).
+               - SIGNIFICANT bonus (+20) if they are "Live Now" and their "Meeting Intent" matches the target user's context (e.g., both want Coffee Chat or Help).
+               - High scores for shared niche goals.
+            2. A connection_reason (One friendly, short sentence. If they are Live, mention why their intent is a great match for a quick campus meetup).
 
             Return the data in a strict JSON array format:
             [
@@ -175,6 +177,15 @@ function generateDeterministicReason(userProfile: any, matchProfile: any): strin
     const sameAim = userProfile.academic_aim === matchProfile.academic_aim;
     const samePeak = userProfile.peak_hours === matchProfile.peak_hours;
 
+    // Flash Networking Robustness: Intent Match
+    if (userProfile.live_now && matchProfile.live_now && userProfile.meeting_intent && matchProfile.meeting_intent) {
+        const myIntent = userProfile.meeting_intent.split(":")[0]?.toLowerCase();
+        const theirIntent = matchProfile.meeting_intent.split(":")[0]?.toLowerCase();
+        if (myIntent === theirIntent) {
+            return `Perfect match! You both want a ${myIntent} right now on campus.`;
+        }
+    }
+
     if (sharedSkills.length > 0) {
         return `You both excel in ${sharedSkills.join(" and ")}, making you a powerful duo.`;
     }
@@ -183,6 +194,9 @@ function generateDeterministicReason(userProfile: any, matchProfile: any): strin
     }
     if (sameAim) {
         return `You are both focused on ${matchProfile.academic_aim}, ideal for academic collaboration.`;
+    }
+    if (matchProfile.live_now) {
+        return `${matchProfile.full_name} is live now for a ${matchProfile.meeting_intent?.split(":")[0] || "chat"}!`;
     }
     if (sharedHobbies.length > 0) {
         return `You both share an interest in ${sharedHobbies.join(" and ")}.`;

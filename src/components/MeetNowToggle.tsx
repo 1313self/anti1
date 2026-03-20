@@ -18,6 +18,7 @@ export function MeetNowToggle() {
     const { toast } = useToast();
     const [isLive, setIsLive] = useState(false);
     const [activeIntent, setActiveIntent] = useState<string | null>(null);
+    const [agenda, setAgenda] = useState("");
     const [loading, setLoading] = useState(true);
     const [liveCount, setLiveCount] = useState(0);
 
@@ -72,19 +73,20 @@ export function MeetNowToggle() {
         };
     }, []);
 
-    const handleToggle = async (intentId: string) => {
+    const handleToggle = async (intentId: string | null) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-
-        const newStatus = !isLive || activeIntent !== intentId;
-        const targetIntent = newStatus ? intentId : null;
-
+ 
+        const newStatus = !!intentId;
+        const targetIntent = newStatus ? `${intentId}: ${agenda}` : null;
+ 
         setLoading(true);
         const res = await updateMeetNowStatus(user.id, newStatus, targetIntent);
         
         if (res.success) {
             setIsLive(newStatus);
             setActiveIntent(targetIntent);
+            if (!newStatus) setAgenda(""); 
             toast(newStatus ? `Ready for ${intentId}!` : "Status hidden.", "success");
         } else {
             toast("Failed to update status.", "error");
@@ -112,26 +114,62 @@ export function MeetNowToggle() {
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                        {INTENTS.map((intent) => {
-                            const Icon = intent.icon;
-                            const isActive = activeIntent === intent.id;
-                            return (
-                                <Button
-                                    key={intent.id}
-                                    onClick={() => handleToggle(intent.id)}
-                                    disabled={loading}
-                                    variant="outline"
-                                    className={`relative h-14 md:h-16 px-6 rounded-2xl border-white/5 font-black uppercase text-[10px] tracking-widest transition-all hover:scale-105 active:scale-95 ${isActive ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-secondary/30 text-muted-foreground hover:bg-secondary/50'}`}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                            {INTENTS.map((intent) => {
+                                const Icon = intent.icon;
+                                const isActive = activeIntent?.split(":")[0] === intent.id;
+                                return (
+                                    <Button
+                                        key={intent.id}
+                                        onClick={() => {
+                                            if (isLive && isActive) {
+                                                handleToggle(null); // Turn off
+                                            } else {
+                                                setActiveIntent(intent.id); // Select intent
+                                                if (isLive) setIsLive(false); // Reset to allow agenda update
+                                            }
+                                        }}
+                                        disabled={loading}
+                                        variant="outline"
+                                        className={`relative h-14 md:h-16 px-6 rounded-2xl border-white/5 font-black uppercase text-[10px] tracking-widest transition-all hover:scale-105 active:scale-95 ${isActive ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-secondary/30 text-muted-foreground hover:bg-secondary/50'}`}
+                                    >
+                                        <Icon className={`w-4 h-4 mr-2 ${isActive ? 'text-white' : intent.color}`} />
+                                        {intent.label}
+                                        {isActive && (
+                                            <motion.div layoutId="intent-glow" className="absolute inset-0 bg-primary/20 blur-xl -z-10" />
+                                        )}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Agenda Input */}
+                        <AnimatePresence>
+                            {activeIntent && !isLive && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    className="flex flex-col sm:flex-row gap-3"
                                 >
-                                    <Icon className={`w-4 h-4 mr-2 ${isActive ? 'text-white' : intent.color}`} />
-                                    {intent.label}
-                                    {isActive && (
-                                        <motion.div layoutId="intent-glow" className="absolute inset-0 bg-primary/20 blur-xl -z-10" />
-                                    )}
-                                </Button>
-                            );
-                        })}
+                                    <input
+                                        type="text"
+                                        placeholder={`What's your ${activeIntent} agenda? (e.g. Discussing SaaS ideas)`}
+                                        value={agenda}
+                                        onChange={(e) => setAgenda(e.target.value)}
+                                        className="flex-1 bg-secondary/50 border border-white/10 rounded-2xl px-6 h-14 text-sm font-medium focus:outline-none focus:border-primary/50 text-foreground"
+                                    />
+                                    <Button
+                                        onClick={() => handleToggle(activeIntent)}
+                                        disabled={!agenda.trim() || loading}
+                                        className="h-14 px-8 rounded-2xl bg-primary text-primary-foreground font-black uppercase text-[10px] tracking-widest shadow-neon"
+                                    >
+                                        Transmit Status
+                                    </Button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     <div className="flex items-center gap-4 pl-0 md:pl-6 border-l-0 md:border-l border-white/10 shrink-0">

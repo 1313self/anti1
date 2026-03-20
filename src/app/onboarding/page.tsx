@@ -16,7 +16,7 @@ import {
     Settings, Brain, Globe, Coffee, Book, Gamepad2,
     Activity, Utensils, Plane, Music, Camera,
     ChevronRight, Check, Sparkles, Loader2,
-    UserCircle, Search, FileText, Wrench
+    UserCircle, Search, FileText, Wrench, Github, Users
 } from "lucide-react";
 
 const steps = [
@@ -76,6 +76,8 @@ export default function OnboardingPage() {
         skills: [] as string[],
         instagram: "",
         discord: "",
+        githubUsername: "",
+        university: "",
     });
 
     useEffect(() => {
@@ -149,6 +151,8 @@ export default function OnboardingPage() {
             bio: formData.bio,
             instagram: formData.instagram,
             discord: formData.discord,
+            githubUsername: formData.githubUsername,
+            university: formData.university,
         });
         if (result.success) {
             // Save skills separately
@@ -365,12 +369,35 @@ export default function OnboardingPage() {
                                                 <span className="text-lg">💬</span> Discord (Optional)
                                             </Label>
                                             <Input
-                                                placeholder="username or invite link"
+                                                placeholder="username#0000"
                                                 className="input-glow-bottom text-base md:text-lg font-black text-foreground placeholder:text-muted-foreground/40 h-12 md:h-14"
                                                 value={formData.discord}
                                                 onChange={e => setFormData({ ...formData, discord: e.target.value })}
                                             />
                                             <p className="text-[10px] text-muted-foreground font-medium">Share your handle or a server invite.</p>
+                                        </div>
+                                        <div className="space-y-3 md:space-y-4">
+                                            <Label className="text-muted-foreground uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                                <Github className="w-3 h-3" /> GitHub (Optional)
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. your-username"
+                                                className="input-glow-bottom text-base md:text-lg font-black text-foreground placeholder:text-muted-foreground/40 h-12 md:h-14"
+                                                value={formData.githubUsername}
+                                                onChange={e => setFormData({ ...formData, githubUsername: e.target.value })}
+                                            />
+                                            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Optional but enables automated Skill-Proof verification.</p>
+                                        </div>
+                                        <div className="space-y-3 md:space-y-4">
+                                            <Label className="text-muted-foreground uppercase font-black text-[9px] md:text-[10px] tracking-widest flex items-center gap-2">
+                                                <Users className="w-3 h-3" /> University / Institute (Optional)
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. Stanford / IIT / MIT"
+                                                className="input-glow-bottom text-base md:text-lg font-black text-foreground placeholder:text-muted-foreground/40 h-12 md:h-14"
+                                                value={formData.university}
+                                                onChange={e => setFormData({ ...formData, university: e.target.value })}
+                                            />
                                         </div>
                                     </div>
                                 )}

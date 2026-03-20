@@ -32,6 +32,11 @@ export default function DiscoveryPage() {
     const [liveOnly, setLiveOnly] = useState(false);
 
     const filtered = useMemo(() => connections.filter(c => {
+        const isLive = (c as any).live_now && (
+            !(c as any).meet_now_expiry || 
+            new Date((c as any).meet_now_expiry) > new Date()
+        );
+
         const matchesSearch = c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
             c.academic_aim?.toLowerCase().includes(search.toLowerCase()) ||
             (c as any).meeting_intent?.toLowerCase().includes(search.toLowerCase()) ||
@@ -39,7 +44,7 @@ export default function DiscoveryPage() {
             ((c as any).skills && (c as any).skills.some((s: string) => s.toLowerCase().includes(search.toLowerCase())));
         const matchesPeak = peakFilter === "Any" || c.peak_hours === peakFilter;
         const matchesAim = aimFilter === "Any" || c.academic_aim?.toLowerCase().includes(aimFilter.toLowerCase());
-        const matchesLive = !liveOnly || (c as any).live_now;
+        const matchesLive = !liveOnly || isLive;
 
         return matchesSearch && matchesPeak && matchesAim && matchesLive;
     }), [connections, search, peakFilter, aimFilter, liveOnly]);

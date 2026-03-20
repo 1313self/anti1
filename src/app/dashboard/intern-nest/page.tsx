@@ -1,202 +1,345 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-    Users, ArrowLeft, Briefcase, BookOpen, Lightbulb,
-    CheckCircle2, ExternalLink, Star, Linkedin, Github,
-    FileText, Network, MessageCircle, TrendingUp
+    Users, ArrowLeft, Briefcase, Star, ExternalLink, 
+    CheckCircle2, Globe, Github, Linkedin, Sparkles,
+    ShieldCheck, Calendar, MapPin, Zap, Plus, Info, MessageSquare, Building2, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
-
-const tips = [
-    {
-        icon: FileText,
-        color: "indigo",
-        title: "Craft Your Resume",
-        steps: [
-            "Keep it to one page — recruiters spend ~7 seconds",
-            "Lead with a strong summary that targets the role",
-            "Quantify every achievement (e.g., 'increased X by 30%')",
-            "Match keywords from the job description",
-            "Use clean, ATS-friendly formatting (no tables, graphics)",
-        ]
-    },
-    {
-        icon: Network,
-        color: "blue",
-        title: "Build Your Network",
-        steps: [
-            "Connect with alumni — they're your biggest asset",
-            "Attend on-campus career fairs every semester",
-            "Follow companies on LinkedIn before applying",
-            "Send personalised connection requests, not generic ones",
-            "Use EraConnect's Discovery Engine to find peers",
-        ]
-    },
-    {
-        icon: MessageCircle,
-        color: "emerald",
-        title: "Ace the Interview",
-        steps: [
-            "Research the company's mission, product, and culture",
-            "Prepare 5 STAR-format behavior stories",
-            "Practice out loud — not just in your head",
-            "Prepare 3 thoughtful questions for your interviewer",
-            "Send a thank-you email within 24 hours",
-        ]
-    },
-    {
-        icon: TrendingUp,
-        color: "amber",
-        title: "Stand Out Online",
-        steps: [
-            "Optimize your LinkedIn headline with keywords",
-            "Pin 2-3 best projects to your GitHub profile",
-            "Write one LinkedIn article about something you learned",
-            "Engage on industry posts — visibility matters",
-            "Build a simple portfolio website (free: Vercel, Netlify)",
-        ]
-    },
-];
-
-const resources = [
-    { name: "LinkedIn Learning", desc: "Free with student email at many universities", icon: "💼", href: "https://linkedin.com/learning" },
-    { name: "Coursera Financial Aid", desc: "Apply for full scholarship on any course", icon: "🎓", href: "https://coursera.org" },
-    { name: "Google Career Certificates", desc: "Industry-recognized, job-ready certs", icon: "🔍", href: "https://grow.google/certificates" },
-    { name: "GitHub Student Pack", desc: "Free dev tools worth thousands", icon: "🐙", href: "https://education.github.com/pack" },
-    { name: "Internshala", desc: "India's #1 internship marketplace (free)", icon: "🚀", href: "https://internshala.com" },
-    { name: "Forage", desc: "Free virtual work experience programs", icon: "⚡", href: "https://theforage.com" },
-];
-
-const colors: Record<string, string> = {
-    indigo: "bg-indigo-50 border-indigo-100 text-indigo-600",
-    blue: "bg-blue-50 border-blue-100 text-blue-600",
-    emerald: "bg-emerald-50 border-emerald-100 text-emerald-600",
-    amber: "bg-amber-50 border-amber-100 text-amber-600",
-};
+import { supabase } from "@/lib/supabase";
+import { getGigs, applyToGig, createGig, getMyApplications, toggleBookmark, getBookmarkedGigIds } from "../featureActions";
+import { useToast } from "@/components/ui/toast";
+import { getStudentRepos, GithubRepo } from "@/lib/github";
 
 export default function InternNestPage() {
-    return (
-        <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-500/[0.03] blur-[120px] rounded-full pointer-events-none" />
+    const { toast } = useToast();
+    const [gigs, setGigs] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [userProfile, setUserProfile] = useState<any>(null);
+    const [githubRepos, setGithubRepos] = useState<GithubRepo[]>([]);
+    const [reposLoading, setReposLoading] = useState(false);
+    
+    // Application & Posting State
+    const [showApplyModal, setShowApplyModal] = useState<any>(null);
+    const [applyMessage, setApplyMessage] = useState("");
+    const [appliedGigIds, setAppliedGigIds] = useState<string[]>([]);
+    const [showPostModal, setShowPostModal] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [newGig, setNewGig] = useState({
+        role: "",
+        company: "",
+        type: "Internship",
+        compensation: "",
+        deadline: "",
+        description: "",
+        tags: "",
+        hot: false
+    });
 
-            <main className="max-w-6xl mx-auto relative z-10 space-y-12">
+    useEffect(() => {
+        async function init() {
+            setLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                setCurrentUser(user);
+                
+                // Fetch profile for GitHub username
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (profile) {
+                    setUserProfile(profile);
+                    if (profile.github_username) {
+                        fetchRepos(profile.github_username);
+                    }
+                }
+
+                // Initial data loads
+                const [gigsRes, appsRes] = await Promise.all([
+                    getGigs(),
+                    getMyApplications(user.id)
+                ]);
+
+                if (gigsRes.success) setGigs(gigsRes.gigs || []);
+                setAppliedGigIds(appsRes || []);
+            }
+            setLoading(false);
+        }
+        init();
+    }, []);
+
+    const fetchRepos = async (username: string) => {
+        setReposLoading(true);
+        const repos = await getStudentRepos(username);
+        setGithubRepos(repos);
+        setReposLoading(false);
+    };
+
+    const handleApply = async () => {
+        if (!currentUser || !showApplyModal) return;
+        setSubmitting(true);
+        const result = await applyToGig(showApplyModal.id, currentUser.id, applyMessage);
+        if (result.success) {
+            setAppliedGigIds(prev => [...prev, showApplyModal.id]);
+            setShowApplyModal(null);
+            setApplyMessage("");
+            toast("Application transmitted to recruiter.", "success");
+        } else {
+            toast("Transmission failed.", "error");
+        }
+        setSubmitting(false);
+    };
+
+    const handlePost = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!currentUser) return;
+        setSubmitting(true);
+        const result = await createGig({
+            ...newGig,
+            tags: newGig.tags.split(",").map(t => t.trim()).filter(t => t !== ""),
+            user_id: currentUser.id
+        });
+        if (result.success) {
+            setShowPostModal(false);
+            setNewGig({ role: "", company: "", type: "Internship", compensation: "", deadline: "", description: "", tags: "", hot: false });
+            toast("Opportunity deployed to the hub.", "success");
+            const gigsRes = await getGigs();
+            if (gigsRes.success) setGigs(gigsRes.gigs || []);
+        } else {
+            toast("Deployment failed.", "error");
+        }
+        setSubmitting(false);
+    };
+
+    return (
+        <div className="min-h-screen bg-background p-6 md:p-12 relative overflow-hidden flex flex-col">
+            <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-500/[0.02] blur-[150px] rounded-full pointer-events-none" />
+
+            <main className="max-w-6xl mx-auto relative z-10 space-y-12 md:space-y-16 flex-1 w-full">
                 {/* Header */}
-                <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 py-4 md:py-8">
-                    <div className="space-y-4">
+                <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 py-4">
+                    <div className="space-y-6">
                         <Link href="/dashboard">
-                            <Button variant="ghost" className="text-muted-foreground font-heading font-black uppercase tracking-[0.3em] text-[10px] p-0 hover:bg-transparent hover:text-primary transition-all flex items-center gap-2">
+                            <Button variant="ghost" className="text-muted-foreground font-black uppercase tracking-[0.3em] text-[10px] p-0 hover:bg-transparent hover:text-primary transition-all flex items-center gap-2">
                                 <ArrowLeft className="w-3 h-3" />
-                                Hub Dashboard
+                                Synergy Hub
                             </Button>
                         </Link>
-                        <div className="flex items-center gap-4 md:gap-6">
-                            <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-blue-600 flex items-center justify-center shadow-xl relative overflow-hidden shrink-0">
-                                <Users className="w-6 h-6 md:w-8 md:h-8 text-white z-10" />
-                                <div className="absolute inset-0 bg-white/10 -rotate-45 translate-y-8" />
-                            </div>
-                            <div className="min-w-0">
-                                <h1 className="text-3xl md:text-4xl font-heading font-black tracking-tighter uppercase text-foreground truncate">Intern <span className="text-gradient">Nest</span></h1>
-                                <p className="text-muted-foreground font-mono text-[9px] md:text-[10px] uppercase tracking-[0.3em] font-bold">Your Internship Command Centre</p>
-                            </div>
+                        <div className="space-y-2">
+                            <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase text-foreground leading-[0.8] mb-2">
+                                Intern <span className="text-gradient">Nest</span>
+                            </h1>
+                            <p className="text-muted-foreground font-bold text-[10px] md:text-xs uppercase tracking-[0.4em]">Integrated Career Command</p>
                         </div>
                     </div>
-                    <Link href="/dashboard/hustle">
-                        <Button className="bg-primary text-white hover:bg-primary/90 rounded-2xl px-8 h-14 font-black uppercase text-[10px] tracking-widest shadow-neon transition-all hover:scale-105">
-                            <Briefcase className="w-4 h-4 mr-2" />
-                            Browse Hustle Board
+                    <div className="flex gap-4">
+                        <Button
+                            onClick={() => setShowPostModal(true)}
+                            variant="outline"
+                            className="rounded-2xl border-white/10 px-8 h-16 font-black uppercase text-[10px] tracking-widest hover:bg-white/5 transition-all"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Post Opportunity
                         </Button>
-                    </Link>
+                        <div className="hidden md:flex flex-col items-end border-l border-border pl-6 ml-2">
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Global Ops</span>
+                            <span className="text-3xl font-black text-foreground">{gigs.length}</span>
+                        </div>
+                    </div>
                 </header>
 
-                {/* Checklist Banner */}
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-card rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden border-primary/20"
-                >
+                {/* GitHub Verification Section */}
+                <section className={`glass-card rounded-[3rem] p-8 md:p-10 relative overflow-hidden border-primary/20 shadow-neon transition-all ${!userProfile?.github_username ? "opacity-90 grayscale-[0.5]" : ""}`}>
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-primary font-black text-[10px] uppercase tracking-[0.4em]">
-                                <Star className="w-3 h-3" /> Internship Readiness
+                    <div className="relative z-10 flex flex-col lg:flex-row gap-10 items-center">
+                        <div className="space-y-4 flex-1 text-center lg:text-left">
+                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold text-[10px] uppercase tracking-widest">
+                                <ShieldCheck className="w-3 h-3" /> Skill-Proof Protocol
                             </div>
-                            <h2 className="text-3xl md:text-4xl font-black tracking-tighter uppercase text-foreground">
-                                Land Your <span className="text-gradient">First Role</span>
+                            <h2 className="text-4xl font-black tracking-tighter uppercase text-foreground leading-none">
+                                {userProfile?.github_username ? "Verified" : "Unlock"} <span className="text-gradient">Moat.</span>
                             </h2>
-                            <p className="text-muted-foreground text-sm font-medium max-w-md leading-relaxed">
-                                A complete playbook — resume, networking, interview prep, and free tools. Everything you need, curated for campus students.
+                            <p className="text-muted-foreground text-[11px] font-medium max-w-sm leading-relaxed mx-auto lg:mx-0">
+                                {userProfile?.github_username 
+                                    ? `Logged in as @${userProfile.github_username}. Your top technical assets are being transmitted to recruiters.`
+                                    : "Link your GitHub in Profile to activate live project verification and priority placement."
+                                }
                             </p>
+                            {!userProfile?.github_username && (
+                                <Link href="/dashboard/profile">
+                                    <Button className="mt-2 rounded-xl bg-foreground text-background px-8 h-12 font-black uppercase text-[9px] tracking-widest shadow-xl transition-all hover:scale-105 active:scale-95">
+                                        <Github className="w-3 h-3 mr-2" /> Link GitHub
+                                    </Button>
+                                </Link>
+                            )}
                         </div>
-                        <div className="flex flex-col gap-2 text-sm font-bold text-foreground shrink-0">
-                            {["Complete profile on EraConnect", "Build 1 project to show", "Connect with 5 alumni", "Apply to 3 gigs this week"].map(item => (
-                                <div key={item} className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                                    <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{item}</span>
+
+                        {/* Recent Repos */}
+                        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {reposLoading ? (
+                                [1, 2].map(i => <div key={i} className="bg-background/40 h-24 rounded-2xl animate-pulse" />)
+                            ) : githubRepos.length > 0 ? (
+                                githubRepos.slice(0, 2).map(repo => (
+                                    <div key={repo.name} className="bg-background/40 backdrop-blur-md rounded-2xl p-5 border border-white/5 flex flex-col justify-between group">
+                                        <div className="flex items-start justify-between">
+                                            <h4 className="text-[11px] font-black text-foreground uppercase tracking-tight group-hover:text-primary transition-colors truncate w-3/4">{repo.name}</h4>
+                                            <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-2">
+                                            <div className="w-2 h-2 rounded-full bg-primary" /> {repo.language || "Web"}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="col-span-2 bg-background/20 rounded-2xl p-6 border border-dashed border-white/10 flex flex-col items-center justify-center text-center">
+                                    <Github className="w-6 h-6 text-muted-foreground/30 mb-2" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50">No Data Transmitted</span>
                                 </div>
-                            ))}
+                            )}
                         </div>
                     </div>
-                </motion.div>
+                </section>
 
-                {/* Tips Grid */}
-                <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground mb-6">Playbook</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                        {tips.map((tip, i) => (
-                            <motion.div
-                                key={tip.title}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.08 }}
-                                className="glass-card rounded-[2rem] p-8 space-y-5"
-                            >
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${colors[tip.color]}`}>
-                                    <tip.icon className="w-6 h-6" />
-                                </div>
-                                <h3 className="text-xl font-black uppercase tracking-tight text-foreground">{tip.title}</h3>
-                                <ul className="space-y-3">
-                                    {tip.steps.map((step, j) => (
-                                        <li key={j} className="flex items-start gap-3">
-                                            <span className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center text-[9px] font-black text-muted-foreground shrink-0 mt-0.5">{j + 1}</span>
-                                            <span className="text-[11px] md:text-xs font-medium text-muted-foreground leading-snug">{step}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </motion.div>
-                        ))}
+                {/* Opportunity Grid */}
+                <section className="space-y-8">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                                <Zap className="w-4 h-4 text-blue-500" />
+                            </div>
+                            <h2 className="text-2xl font-black uppercase tracking-tight text-foreground">Live Hub Gigs</h2>
+                        </div>
+                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest border-primary/20 text-primary px-3 h-6">Active Sync</Badge>
                     </div>
-                </div>
 
-                {/* Free Resources */}
-                <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter text-foreground mb-6">Free Resources</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {resources.map((r, i) => (
-                            <motion.a
-                                key={r.name}
-                                href={r.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                initial={{ opacity: 0, scale: 0.95 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: i * 0.06 }}
-                                className="glass-card rounded-[1.5rem] p-6 space-y-3 group flex flex-col"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-3xl">{r.icon}</span>
-                                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    {loading ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {[1, 2, 3].map(i => <div key={i} className="glass-card h-64 rounded-[2rem] animate-pulse" />)}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {gigs.length > 0 ? gigs.map((gig, i) => (
+                                <motion.div
+                                    key={gig.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: i * 0.05 }}
+                                    className="glass-card rounded-[2rem] p-7 border-border hover:border-primary/20 transition-all group flex flex-col h-full"
+                                >
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-sm font-black border border-white/5">
+                                                {gig.company[0]}
+                                            </div>
+                                            <div>
+                                                <p className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">{gig.type}</p>
+                                                <h3 className="text-md font-black text-foreground uppercase tracking-tight truncate max-w-[120px]">{gig.company}</h3>
+                                            </div>
+                                        </div>
+                                        {gig.hot && <Badge className="bg-primary/20 text-primary border-0 text-[7px] font-black animate-pulse px-2 h-5">HOT</Badge>}
+                                    </div>
+                                    <div className="space-y-1 mb-6 flex-grow">
+                                        <p className="text-sm font-bold text-foreground leading-tight">{gig.title || gig.role}</p>
+                                        <div className="flex items-center gap-2 text-muted-foreground text-[9px] font-bold uppercase tracking-widest">
+                                            <p className="truncate w-full">{gig.compensation || "Competitive"}</p>
+                                        </div>
+                                    </div>
+                                    <Button 
+                                        onClick={() => setShowApplyModal(gig)}
+                                        disabled={appliedGigIds.includes(gig.id)}
+                                        variant="secondary" 
+                                        className={`w-full rounded-xl h-11 font-black uppercase text-[9px] tracking-widest border border-border group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all ${appliedGigIds.includes(gig.id) ? "opacity-50" : ""}`}
+                                    >
+                                        {appliedGigIds.includes(gig.id) ? "Applied ✓" : <>Initiate Application <ArrowLeft className="w-3 h-3 ml-2 rotate-180" /></>}
+                                    </Button>
+                                </motion.div>
+                            )) : (
+                                <div className="col-span-full py-20 text-center glass-card rounded-[2rem] border-dashed">
+                                    <p className="text-muted-foreground font-black uppercase tracking-widest text-[10px]">No active gigs in orbit.</p>
                                 </div>
-                                <div>
-                                    <p className="font-black text-foreground uppercase tracking-tight text-sm group-hover:text-primary transition-colors">{r.name}</p>
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 leading-snug">{r.desc}</p>
-                                </div>
-                            </motion.a>
-                        ))}
-                    </div>
-                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
             </main>
+
+            {/* Post Modal */}
+            <AnimatePresence>
+                {showPostModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPostModal(false)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-lg bg-card rounded-[2.5rem] border border-border p-8 shadow-2xl overflow-hidden overflow-y-auto max-h-[90vh]">
+                            <h2 className="text-2xl font-black uppercase tracking-tight text-foreground mb-6">Deploy Opportunity</h2>
+                            <form onSubmit={handlePost} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Input required placeholder="ROLE TITLE" value={newGig.role} onChange={e => setNewGig({...newGig, role: e.target.value})} className="h-12 rounded-xl bg-secondary/50 border-border text-[10px] font-black uppercase" />
+                                    <Input required placeholder="COMPANY NAME" value={newGig.company} onChange={e => setNewGig({...newGig, company: e.target.value})} className="h-12 rounded-xl bg-secondary/50 border-border text-[10px] font-black uppercase" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <select value={newGig.type} onChange={e => setNewGig({...newGig, type: e.target.value})} className="h-12 w-full rounded-xl bg-secondary/50 border border-border text-[10px] font-black uppercase px-4 outline-none appearance-none">
+                                        <option>Internship</option>
+                                        <option>Freelance</option>
+                                        <option>One-time</option>
+                                        <option>Part-time</option>
+                                    </select>
+                                    <Input required placeholder="COMPENSATION (e.g. $20/hr)" value={newGig.compensation} onChange={e => setNewGig({...newGig, compensation: e.target.value})} className="h-12 rounded-xl bg-secondary/50 border-border text-[10px] font-black uppercase" />
+                                </div>
+                                <textarea required placeholder="DESCRIPTION & REQUIREMENTS..." value={newGig.description} onChange={e => setNewGig({...newGig, description: e.target.value})} className="w-full h-32 rounded-xl bg-secondary/50 border border-border p-4 text-[10px] font-bold outline-none resize-none" />
+                                <Input placeholder="TAGS (REACT, DESIGN...)" value={newGig.tags} onChange={e => setNewGig({...newGig, tags: e.target.value})} className="h-12 rounded-xl bg-secondary/50 border-border text-[10px] font-black uppercase" />
+                                <div className="flex items-center gap-3">
+                                    <input type="checkbox" checked={newGig.hot} onChange={e => setNewGig({...newGig, hot: e.target.checked})} className="w-4 h-4 rounded bg-secondary border-border" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Mark as Hot Opportunity</span>
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <Button type="button" variant="ghost" onClick={() => setShowPostModal(false)} className="flex-1 h-12 rounded-xl uppercase font-black text-[10px]">Cancel</Button>
+                                    <Button disabled={submitting} className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-black uppercase text-[10px] shadow-neon">
+                                        {submitting ? "Deploying..." : "Transmit"}
+                                    </Button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Apply Modal */}
+            <AnimatePresence>
+                {showApplyModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowApplyModal(null)} className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-lg bg-card rounded-[2.5rem] border border-border p-8 shadow-2xl">
+                            <h2 className="text-2xl font-black uppercase tracking-tight text-foreground mb-2">Initiate Apply</h2>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-6">Position: {showApplyModal.title || showApplyModal.role}</p>
+                            <textarea 
+                                value={applyMessage} 
+                                onChange={e => setApplyMessage(e.target.value)}
+                                placeholder="YOUR VALUE PROPOSITION (MIN 20 CHARS)..." 
+                                className="w-full h-40 rounded-xl bg-secondary/50 border border-border p-5 text-[11px] font-bold outline-none resize-none mb-6"
+                            />
+                            <div className="flex gap-4">
+                                <Button variant="ghost" onClick={() => setShowApplyModal(null)} className="flex-1 h-14 rounded-xl uppercase font-black text-[10px]">Cancel</Button>
+                                <Button 
+                                    disabled={submitting || applyMessage.length < 20} 
+                                    onClick={handleApply}
+                                    className="flex-1 h-14 rounded-xl bg-primary text-primary-foreground font-black uppercase text-[10px] shadow-neon"
+                                >
+                                    {submitting ? "Transmitting..." : "Send Protocol"}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            <div className="h-20" />
         </div>
     );
 }

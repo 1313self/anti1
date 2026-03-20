@@ -30,9 +30,7 @@ const navItems = [
     { name: "Discovery Engine", href: "/dashboard/discovery", icon: Sparkles },
     { name: "The Library", href: "/dashboard/library", icon: Library },
     { name: "The Forge", href: "/dashboard/forge", icon: Terminal },
-    { name: "The Hustle", href: "/dashboard/hustle", icon: Briefcase },
-    { name: "The Intern Nest", href: "/dashboard/intern-nest", icon: Users },
-    { name: "The Lounge", href: "/dashboard/lounge", icon: MessageSquare },
+    { name: "Intern Nest", href: "/dashboard/intern-nest", icon: Briefcase },
 ];
 
 export default function DashboardLayout({
